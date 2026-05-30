@@ -57,6 +57,13 @@ Artifacts:
 *.json  # command/profiler metadata
 ```
 
+## Reports
+
+- `runtime-baseline-20260530.md` — Rust runtime route/trace microbenchmark baseline.
+- `deadworks-shadow-boot-20260530.md` — real server boot-only DWRT load proof.
+- `client-shadow-smoke-attempt-20260530-invalid.md` — invalid client attempt caused by stale server processes.
+- `client-shadow-smoke-20260530.md` — first valid client-connected shadow route proof and longframe classification.
+
 ## Longframe classification
 
 Every longframe report should classify likely cause as one of:
