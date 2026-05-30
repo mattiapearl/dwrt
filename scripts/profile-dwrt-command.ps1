@@ -106,6 +106,18 @@ function Stop-Profiler([string]$Selected, [string]$Path) {
     }
 }
 
+function Stop-ProcessTree([int]$ProcessId) {
+    $children = Get-CimInstance Win32_Process -Filter "ParentProcessId=$ProcessId" -ErrorAction SilentlyContinue
+    foreach ($child in $children) {
+        Stop-ProcessTree -ProcessId ([int]$child.ProcessId)
+    }
+
+    $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+    if ($null -ne $process) {
+        Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+    }
+}
+
 $selectedProfiler = Resolve-Profiler $Profiler
 $start = Get-Date
 $exitCode = $null
@@ -134,8 +146,8 @@ try {
     if ($TimeoutSeconds -gt 0) {
         if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
             $timedOut = $true
-            Write-Warning "Command timed out after $TimeoutSeconds seconds; stopping process id $($process.Id)."
-            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            Write-Warning "Command timed out after $TimeoutSeconds seconds; stopping process tree rooted at id $($process.Id)."
+            Stop-ProcessTree -ProcessId $process.Id
             $process.WaitForExit()
         }
     }

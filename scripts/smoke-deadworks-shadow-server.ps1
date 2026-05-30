@@ -18,7 +18,9 @@ param(
 
     [int]$NetIncomingSerializedId = -1,
 
-    [string]$ExtraServerArgs = "-dedicated -dev -insecure -allow_no_lobby_connect +tv_citadel_auto_record 0 +spec_replay_enable 0 +tv_enable 0 +citadel_upload_replay_enabled 0 +hostport 27067 +map dl_midtown"
+    [string]$ExtraServerArgs = "-dedicated -dev -insecure -allow_no_lobby_connect +tv_citadel_auto_record 0 +spec_replay_enable 0 +tv_enable 0 +citadel_upload_replay_enabled 0 +hostport 27067 +map dl_midtown",
+
+    [switch]$KillExisting
 )
 
 $ErrorActionPreference = "Stop"
@@ -42,6 +44,17 @@ if ($LASTEXITCODE -ne 0) { throw "cargo build failed with exit code $LASTEXITCOD
 
 if (!(Test-Path $DeadworksExe)) { throw "Missing Deadworks executable: $DeadworksExe" }
 if (!(Test-Path $RuntimeDll)) { throw "Missing DWRT runtime DLL: $RuntimeDll" }
+
+$existing = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $DeadworksExe })
+if ($existing.Count -gt 0) {
+    if (-not $KillExisting) {
+        $ids = ($existing | ForEach-Object { $_.Id }) -join ", "
+        throw "Existing Deadworks smoke process(es) for '$DeadworksExe' are still running: $ids. Re-run with -KillExisting or stop them first."
+    }
+    Write-Warning "Stopping existing Deadworks smoke process(es): $($existing.Id -join ', ')"
+    $existing | Stop-Process -Force
+    Start-Sleep -Seconds 1
+}
 
 $oldEnable = $env:DWRT_SHADOW_ENABLE
 $oldRuntime = $env:DWRT_RUNTIME_DLL
