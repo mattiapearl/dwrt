@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use dwrt_engine::{Access, ServerSurface};
 use dwrt_memory::{
     BuildId, Confidence, Evidence, FactKey, FactKind, FactValue, MemoryFact, MemoryManifest,
@@ -17,20 +19,56 @@ fn process_usercmds_fact_key() -> FactKey {
 fn manifest_with_process_usercmds() -> MemoryManifest {
     let mut manifest = MemoryManifest::new(BuildId::new("DeadlockDedicatedServer"));
     manifest
-        .insert(
-            MemoryFact::new(
-                process_usercmds_fact_key(),
-                FactValue::Signature {
-                    module: "server.dll".into(),
-                    pattern: "48 89 ??".into(),
-                },
-                Access::OBSERVE,
-                Confidence::SingleBuildValidated,
-            )
-            .with_evidence(Evidence::new("unit-test", "synthetic signature")),
-        )
+        .insert(fact_for_key(process_usercmds_fact_key()))
         .unwrap();
     manifest
+}
+
+fn manifest_with_default_hook_facts() -> MemoryManifest {
+    let mut manifest = MemoryManifest::new(BuildId::new("DeadlockDedicatedServer"));
+    for key in [
+        process_usercmds_fact(),
+        filter_message_fact(),
+        post_event_abstract_fact(),
+        game_event_post_fact(),
+        game_frame_fact(),
+        client_lifecycle_fact(),
+        entity_lifecycle_fact(),
+    ] {
+        manifest.insert(fact_for_key(key)).unwrap();
+    }
+    manifest
+}
+
+fn fact_for_key(key: FactKey) -> MemoryFact {
+    let value = match key.kind {
+        FactKind::Interface => FactValue::InterfaceName {
+            module: key.owner.clone(),
+            interface: key.name.clone(),
+        },
+        FactKind::Signature => FactValue::Signature {
+            module: key.owner.clone(),
+            pattern: "synthetic".into(),
+        },
+        FactKind::SchemaField => FactValue::SchemaField {
+            class_name: key.owner.clone(),
+            field_name: key.name.clone(),
+            offset: 0,
+        },
+        FactKind::Offset => FactValue::Offset {
+            offset: 0,
+            size: None,
+        },
+        FactKind::VTableIndex => FactValue::VTableIndex { index: 0 },
+    };
+
+    MemoryFact::new(
+        key,
+        value,
+        Access::OBSERVE,
+        Confidence::SingleBuildValidated,
+    )
+    .with_evidence(Evidence::new("unit-test", "synthetic fact"))
 }
 
 fn usercmd_visitor_descriptor() -> HookDescriptor {
@@ -42,6 +80,7 @@ fn usercmd_visitor_descriptor() -> HookDescriptor {
         Access::OBSERVE.union(Access::READ),
     )
     .unwrap()
+    .with_module("server.dll")
     .require_fact(DiscoveryRequirement::required(process_usercmds_fact_key()))
     .require_feature(FeatureDependency::required("usercmd.fast_read"))
 }
@@ -170,4 +209,62 @@ fn disabled_hooks_cannot_be_installed() {
         registry.mark_installed(&name, &manifest_with_process_usercmds(), &features),
         Err(HookRegistryError::CannotInstallDisabledHook(name))
     );
+}
+
+#[test]
+fn default_hook_descriptors_cover_initial_runtime_surfaces() {
+    let descriptors = default_hook_descriptors().unwrap();
+    let names = descriptors
+        .iter()
+        .map(|descriptor| descriptor.name().as_str().to_owned())
+        .collect::<BTreeSet<_>>();
+
+    assert_eq!(descriptors.len(), 7);
+    assert!(names.contains("usercmd.process"));
+    assert!(names.contains("net.incoming.filter_message"));
+    assert!(names.contains("net.outgoing.post_event"));
+    assert!(names.contains("game.event.post_event"));
+    assert!(names.contains("game.frame"));
+    assert!(names.contains("client.lifecycle"));
+    assert!(names.contains("entity.lifecycle"));
+
+    for descriptor in &descriptors {
+        assert_ne!(descriptor.module(), "unknown");
+        assert_eq!(descriptor.run_mode(), HookRunMode::Shadow);
+        assert!(!descriptor.discovery().is_empty());
+        assert!(!descriptor.features().is_empty());
+    }
+}
+
+#[test]
+fn default_hook_registry_resolves_with_default_facts_and_features() {
+    let registry = default_hook_registry().unwrap();
+    let statuses =
+        registry.evaluate_all(&manifest_with_default_hook_facts(), &default_feature_set());
+
+    assert_eq!(statuses.len(), 7);
+    assert!(statuses.values().all(HookStatus::is_usable));
+    assert!(
+        statuses
+            .values()
+            .all(|status| status.health == HookHealth::Resolved)
+    );
+}
+
+#[test]
+fn default_hook_registry_disables_missing_feature_group() {
+    let registry = default_hook_registry().unwrap();
+    let mut features = default_feature_set();
+    features.disable(FEATURE_NET);
+
+    let status = registry
+        .evaluate(
+            &HookName::new("net.incoming.filter_message").unwrap(),
+            &manifest_with_default_hook_facts(),
+            &features,
+        )
+        .unwrap();
+
+    assert!(!status.is_usable());
+    assert_eq!(status.missing_features, vec![FEATURE_NET.to_string()]);
 }

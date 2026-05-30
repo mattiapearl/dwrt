@@ -50,6 +50,7 @@ pub enum HookPurpose {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HookDescriptor {
     name: HookName,
+    module: String,
     surface: ServerSurface,
     purpose: HookPurpose,
     frequency: HookFrequency,
@@ -69,6 +70,7 @@ impl HookDescriptor {
     ) -> Result<Self, HookRegistryError> {
         let descriptor = Self {
             name,
+            module: "unknown".to_string(),
             surface,
             purpose,
             frequency,
@@ -84,6 +86,11 @@ impl HookDescriptor {
     #[must_use]
     pub fn name(&self) -> &HookName {
         &self.name
+    }
+
+    #[must_use]
+    pub fn module(&self) -> &str {
+        &self.module
     }
 
     #[must_use]
@@ -119,6 +126,11 @@ impl HookDescriptor {
     #[must_use]
     pub fn features(&self) -> &[FeatureDependency] {
         &self.features
+    }
+
+    pub fn with_module(mut self, module: impl Into<String>) -> Self {
+        self.module = module.into();
+        self
     }
 
     pub fn with_run_mode(mut self, run_mode: HookRunMode) -> Self {

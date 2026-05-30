@@ -18,6 +18,7 @@ It answers:
 HookName              stable registry key, e.g. usercmd.process.visitor
 HookPurpose           Visitor | Hook | VisitorAndHook
 HookFrequency         Cold | MapLifecycle | PerClient | PerTick | PerPacket | PerUsercmd | EventStorm
+Module                expected engine/native module boundary, e.g. server.dll
 DiscoveryRequirement  required/optional dwrt-memory FactKey
 FeatureDependency     required/optional capability string
 HookRunMode           Disabled | Shadow | Active
@@ -53,3 +54,19 @@ A hook may be installed only when:
 - descriptor shape is valid.
 
 Hook installation remains a future C++/Rust shim concern; `dwrt-hooks` only models and validates.
+
+## Default descriptor catalog
+
+The initial default catalog is deliberately small and shadow-first:
+
+| Hook name | Module | Surface | Frequency | Purpose |
+| --- | --- | --- | --- | --- |
+| `usercmd.process` | `server.dll` | usercmd pipeline | per usercmd | visitor + hook |
+| `net.incoming.filter_message` | `engine2.dll` | net-message pipeline | per packet | visitor + hook |
+| `net.outgoing.post_event` | `networksystem.dll` | net-message pipeline | per packet | visitor + hook |
+| `game.event.post_event` | `server.dll` | game events | event storm | visitor |
+| `game.frame` | `server.dll` | game rules | per tick | visitor |
+| `client.lifecycle` | `engine2.dll` | Steam/auth/client lifecycle | per client | visitor |
+| `entity.lifecycle` | `server.dll` | entity simulation | event storm | visitor |
+
+Each descriptor requires at least one manifest fact and one feature group. Missing facts or disabled feature groups resolve to a disabled status instead of a partial install.
