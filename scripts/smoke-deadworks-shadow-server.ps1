@@ -10,6 +10,9 @@ param(
     [ValidateSet("Auto", "Wpr", "Xperf", "None")]
     [string]$Profiler = "Auto",
 
+    [ValidateSet("Cpu", "Latency")]
+    [string]$XperfPreset = "Cpu",
+
     [string]$OutputDir = "",
 
     [uint32]$UsercmdMountMask = 0,
@@ -86,6 +89,7 @@ try {
         Name = "deadworks-shadow-server"
         OutputDir = $profileDir
         Profiler = $Profiler
+        XperfPreset = $XperfPreset
         TimeoutSeconds = $TimeoutSeconds
         AllowTimeout = $true
     }

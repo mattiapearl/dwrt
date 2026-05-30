@@ -13,6 +13,9 @@ param(
     [ValidateSet("Auto", "Wpr", "Xperf", "None")]
     [string]$Profiler = "Auto",
 
+    [ValidateSet("Cpu", "Latency")]
+    [string]$XperfPreset = "Cpu",
+
     [int]$TimeoutSeconds = 0,
 
     [switch]$AllowTimeout,
@@ -76,7 +79,7 @@ function Resolve-Profiler {
     return "None"
 }
 
-function Start-Profiler([string]$Selected) {
+function Start-Profiler([string]$Selected, [string]$Preset) {
     switch ($Selected) {
         "Wpr" {
             Write-Host "[dwrt-profile] starting WPR CPU profile"
@@ -84,8 +87,18 @@ function Start-Profiler([string]$Selected) {
             if ($LASTEXITCODE -ne 0) { throw "wpr start failed with exit code $LASTEXITCODE" }
         }
         "Xperf" {
-            Write-Host "[dwrt-profile] starting xperf CPU profile"
-            & xperf.exe -on PROC_THREAD+LOADER+PROFILE -stackwalk Profile -buffersize 1024 -MaxFile 1024 -FileMode Circular | Write-Host
+            $flags = "PROC_THREAD+LOADER+PROFILE"
+            $stackWalk = "Profile"
+            $maxFileMb = 1024
+
+            if ($Preset -eq "Latency") {
+                $flags = "PROC_THREAD+LOADER+PROFILE+CSWITCH+DISPATCHER+DPC+INTERRUPT+DISK_IO+DISK_IO_INIT+FILE_IO+FILE_IO_INIT+FILENAME+HARD_FAULTS"
+                $stackWalk = "Profile+CSwitch+ReadyThread+DiskReadInit+DiskWriteInit+FileRead+FileWrite+FileFlush+HardFault"
+                $maxFileMb = 4096
+            }
+
+            Write-Host "[dwrt-profile] starting xperf $Preset profile"
+            & xperf.exe -on $flags -stackwalk $stackWalk -buffersize 1024 -MaxFile $maxFileMb -FileMode Circular | Write-Host
             if ($LASTEXITCODE -ne 0) { throw "xperf start failed with exit code $LASTEXITCODE" }
         }
     }
@@ -132,7 +145,7 @@ Write-Host "[dwrt-profile] profiler: $selectedProfiler"
 
 try {
     if ($selectedProfiler -ne "None") {
-        Start-Profiler $selectedProfiler
+        Start-Profiler $selectedProfiler $XperfPreset
         $startedProfiler = $true
     }
 
@@ -181,6 +194,7 @@ finally {
         arguments = $Arguments
         argumentLine = $ArgumentLine
         profiler = $selectedProfiler
+        xperfPreset = $XperfPreset
         requiredProfiler = [bool]$RequireProfiler
         elevated = $isAdmin
         startedAt = $start.ToString("o")

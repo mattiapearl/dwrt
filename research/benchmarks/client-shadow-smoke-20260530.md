@@ -76,6 +76,52 @@ usercmd slow=1 / 10878 calls
 
 These counters do not explain the reported 100 ms+ server longframes.
 
+## Main-thread stall analysis
+
+Further xperf sample-dump analysis found that the gameplay longframes were **off-CPU/main-thread stalls**, not server CPU work and not DWRT route work.
+
+Server main thread in this run: `deadworks_dwrt.exe` tid `14504`.
+
+Relevant sample gaps:
+
+```txt
+156.864299s -> 156.993213s = 128.914ms off-CPU gap
+174.579750s -> 175.161112s = 581.362ms off-CPU gap
+```
+
+Those line up with the gameplay longframes:
+
+```txt
+156.809662 IN_PROGRESS_LONG_FRAME TOOK 143.940ms DURING GAMEPLAY.
+174.976440 IN_PROGRESS_LONG_FRAME TOOK 597.398ms DURING GAMEPLAY.
+```
+
+The severe 597ms frame has the strongest smoking gun: the last server-main-thread CPU sample before the 581ms gap is in the Windows file-system path, reached from engine/tier0 code:
+
+```txt
+Ntfs.sys
+FLTMGR.SYS
+ntoskrnl.exe
+ntdll.dll
+KernelBase.dll
+engine2.dll
+engine2.dll
+tier0.dll
+engine2.dll
+...
+deadworks_dwrt.exe main loop
+```
+
+So the severe frame is best explained as a synchronous file/console/log I/O stall on the server main thread. In this smoke harness stdout/stderr were redirected to `server.log`, while Source's console input path emitted per-frame warnings:
+
+```txt
+CTextConsoleWin::GetLine: !GetNumberOfConsoleInputEvents
+```
+
+This run wrote `11327` of those warning lines. A no-client 90s control run with the same harness still produced `5585` of the warning lines, confirming the spam is harness-induced and not caused by DWRT route subscriptions or client traffic.
+
+The netchan high-water messages are therefore treated as a consequence of the stalled server frame: while the server frame is delayed, outgoing traffic backs up and high-water logging fires when the server resumes/flushes.
+
 ## Longframes observed
 
 The server log recorded two gameplay longframes matching the manual report window:
@@ -131,11 +177,12 @@ Number of Processors : 28
 xperf CPU sample windows around the longframes did not implicate DWRT:
 
 - `dwrt_runtime.dll` had no meaningful samples around either gameplay longframe;
-- `coreclr.dll` was negligible in the server process windows;
-- server samples were in normal engine modules such as `server.dll`, `vphysics2.dll`, `animationsystem.dll`, `engine2.dll`, `networksystem.dll`, and `tier0.dll`;
-- disk IO and hard-fault reports for the windows were empty.
+- `coreclr.dll` was not the source of the long stall;
+- server-main-thread samples stop for ~581ms across the severe frame;
+- the last sample before that gap is in `Ntfs.sys`/`FLTMGR.SYS` from engine/tier0 code;
+- server samples outside the gaps were in normal engine modules such as `server.dll`, `vphysics2.dll`, `animationsystem.dll`, `engine2.dll`, `networksystem.dll`, and `tier0.dll`.
 
-Limitation: this xperf profile was started with `PROC_THREAD+LOADER+PROFILE` only. It did not include context-switch/ready-thread data, so it cannot prove whether the server thread was blocked, waiting, or preempted during the longframes.
+Limitation: this xperf profile was started with `PROC_THREAD+LOADER+PROFILE` only. It did not include file-name, context-switch, or ready-thread data, so it identifies the class of stall (`NTFS`/file-system I/O on the main thread) but not the exact file handle or minifilter delay.
 
 Local analysis outputs were written under:
 
@@ -147,15 +194,18 @@ target/analysis/20260530-131431/
 
 Current classification: **not DWRT route overhead**.
 
-Most likely bucket for this run: **server/network backpressure and/or smoke-harness console/logging noise**.
+Cause for the severe gameplay frame: **server main-thread synchronous file/console/log I/O stall in the smoke harness**.
 
-Confidence: medium. The route counters and CPU samples rule out a large DWRT hot-path stall, but a follow-up trace with context-switch data is needed to distinguish server wait/backpressure from scheduler/preemption or console/log IO stalls.
+Secondary symptom: **netchannel queue backpressure while the stalled frame is not advancing**.
+
+Confidence: high for ruling out DWRT and high that the severe frame entered the Windows file-system path immediately before the stall. Confidence is medium on the exact file/minifilter because this trace did not include file-name or context-switch providers.
 
 ## Follow-up
 
-Before treating longframes as engine/runtime behavior, run a cleaner repeat with:
+Do not use this redirected-console harness for final gameplay overhead numbers. Repeat with:
 
-- console-input spam removed or suppressed;
-- xperf context-switch/ready-thread providers enabled in addition to CPU sampling;
+- console-input spam removed or avoided;
+- file/console output not synchronously written by the server main thread where possible;
+- xperf context-switch, ready-thread, and file-IO providers enabled in addition to CPU sampling;
 - the same DWRT shadow counters;
 - a no-DWRT or DWRT-disabled comparison run under the same launch harness.
