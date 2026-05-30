@@ -1,0 +1,24 @@
+# Rust build outputs
+target/
+
+# IDE/editor
+.vscode/
+.idea/
+*.user
+
+# Logs/artifacts
+*.log
+*.ndjson
+*.etl
+*.pdb
+*.dll
+*.exe
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Native build intermediates
+*.obj
+*.lib
+*.exp
