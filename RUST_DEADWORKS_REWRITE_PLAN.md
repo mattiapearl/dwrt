@@ -329,6 +329,7 @@ crates/dwrt-hooks                  # hook boundary registry, discovery requireme
 crates/dwrt-runtime                # opaque runtime object + exported C ABI functions
 crates/dwrt-runtime/include/*.h    # tiny C shim header
 crates/dwrt-trace                  # JSONL traces and route-decision comparison helpers
+crates/dwrt-bench                  # route/trace microbenchmarks for profiler-backed baselines
 ```
 
 Validated:
@@ -338,6 +339,7 @@ cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 cargo build -p dwrt-runtime --release
 C header smoke compile/link/run with MSVC against dwrt_runtime.dll.lib
+profiled benchmark harness for route/trace baselines
 ```
 
 Current exported runtime DLL symbols include:

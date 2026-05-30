@@ -10,6 +10,7 @@ This is not a full Deadlock server clone. It documents the real dedicated server
 - [Hook registry model](hook-registry.md)
 - [Real server surface map](surface-map.md)
 - [Memory manifest layer](memory-manifest.md)
+- [Benchmarking and profiling](../benchmarks/README.md)
 - [Trace and golden comparison layer](tracing.md)
 - [Entity facades](entity-facades.md)
 - [ProcessUsercmds model](process-usercmds.md)
@@ -22,3 +23,4 @@ This is not a full Deadlock server clone. It documents the real dedicated server
 3. Every public low-level/memory feature must be curated, versioned, and tested.
 4. Keep C++ as the narrow hook/ABI shim until Rust can safely own a piece.
 5. Deadlock may resemble CS2/Source 2, but do not assume CS2-exposed functions exist or are used here.
+6. Profile every in-game smoke/benchmark run end-to-end; do not explain longframes from counters alone.

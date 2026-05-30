@@ -45,3 +45,11 @@ Windows/MSVC C ABI smoke test:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-dwrt-runtime.ps1
 ```
+
+Runtime benchmark with profiler wrapper:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bench-dwrt-runtime.ps1
+```
+
+ETW profiling requires an elevated/admin shell. Use `-RequireProfiler` for runs where a missing profiler artifact should fail the run.

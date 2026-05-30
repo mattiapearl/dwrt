@@ -5,6 +5,7 @@ Minimal Rust-native runtime pieces for a Deadworks-style Deadlock server extensi
 Current crates:
 
 - `dwrt-ffi`: stable C ABI structs shared by a native hook shim and Rust runtime.
+- `dwrt-bench`: benchmark binary for route/trace costs; intended to run under the profiler wrapper.
 - `dwrt-core`: allocation-free hot-path routing primitives for net messages and usercmds.
 - `dwrt-engine`: declarative map of real Deadlock server surfaces and safe default exposure policy.
 - `dwrt-hooks`: hook boundary registry model with discovery facts, feature dependencies, frequency class, and shadow/active status.
@@ -23,6 +24,12 @@ Run the C ABI smoke test on Windows/MSVC:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-dwrt-runtime.ps1
+```
+
+Run profiled runtime benchmarks:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bench-dwrt-runtime.ps1
 ```
 
 Design rule: control paths may allocate and lock; net/usercmd hot hooks must be able to answer no-interest/no-work through atomics and return immediately.

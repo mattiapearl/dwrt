@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/dwrt-bench",
     "crates/dwrt-core",
     "crates/dwrt-engine",
     "crates/dwrt-entity",

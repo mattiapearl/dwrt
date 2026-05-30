@@ -10,6 +10,7 @@ target/
 *.log
 *.ndjson
 *.etl
+research/benchmarks/runs/
 *.pdb
 *.dll
 *.exe
