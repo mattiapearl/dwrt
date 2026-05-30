@@ -63,8 +63,10 @@ function Resolve-Profiler {
         return "Xperf"
     }
 
-    if ($null -ne $wpr) { return "Wpr" }
+    # Prefer xperf when available because the explicit buffer/file settings have
+    # been more reliable for short DWRT smoke runs than the default WPR CPU profile.
     if ($null -ne $xperf) { return "Xperf" }
+    if ($null -ne $wpr) { return "Wpr" }
     if ($RequireProfiler) { throw "No ETW profiler found. Install Windows Performance Toolkit or use -Profiler None." }
     Write-Warning "No ETW profiler found; running without ETW profile."
     return "None"

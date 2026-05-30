@@ -24,7 +24,7 @@ This builds `dwrt-bench`, runs it, and writes a report under:
 research/benchmarks/runs/<timestamp>/dwrt-bench.md
 ```
 
-By default the script attempts ETW profiling with WPR/xperf. ETW CPU profiling requires an elevated/admin shell. In a non-admin shell the benchmark still runs and writes metadata that profiling was unavailable.
+By default the script attempts ETW profiling with xperf/WPR. ETW CPU profiling requires an elevated/admin shell. In a non-admin shell the benchmark still runs and writes metadata that profiling was unavailable. When both xperf and WPR are available, the wrapper prefers xperf because its explicit buffer settings are more reliable for short smoke runs.
 
 To require a profiler and fail if ETW cannot start:
 
