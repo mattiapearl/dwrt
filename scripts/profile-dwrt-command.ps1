@@ -13,6 +13,10 @@ param(
     [ValidateSet("Auto", "Wpr", "Xperf", "None")]
     [string]$Profiler = "Auto",
 
+    [int]$TimeoutSeconds = 0,
+
+    [switch]$AllowTimeout,
+
     [switch]$RequireProfiler
 )
 
@@ -105,6 +109,8 @@ function Stop-Profiler([string]$Selected, [string]$Path) {
 $selectedProfiler = Resolve-Profiler $Profiler
 $start = Get-Date
 $exitCode = $null
+$actualExitCode = $null
+$timedOut = $false
 $stopError = $null
 $startedProfiler = $false
 
@@ -119,12 +125,31 @@ try {
     }
 
     if ([string]::IsNullOrWhiteSpace($ArgumentLine)) {
-        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -NoNewWindow -Wait -PassThru
+        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -NoNewWindow -PassThru
     }
     else {
-        $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentLine -NoNewWindow -Wait -PassThru
+        $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentLine -NoNewWindow -PassThru
     }
-    $exitCode = $process.ExitCode
+
+    if ($TimeoutSeconds -gt 0) {
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            $timedOut = $true
+            Write-Warning "Command timed out after $TimeoutSeconds seconds; stopping process id $($process.Id)."
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            $process.WaitForExit()
+        }
+    }
+    else {
+        $process.WaitForExit()
+    }
+
+    $actualExitCode = $process.ExitCode
+    if ($timedOut) {
+        $exitCode = $(if ($AllowTimeout) { 0 } else { 124 })
+    }
+    else {
+        $exitCode = $actualExitCode
+    }
 }
 finally {
     $end = Get-Date
@@ -149,6 +174,10 @@ finally {
         startedAt = $start.ToString("o")
         endedAt = $end.ToString("o")
         elapsedSeconds = [math]::Round(($end - $start).TotalSeconds, 6)
+        timeoutSeconds = $TimeoutSeconds
+        timedOut = $timedOut
+        allowTimeout = [bool]$AllowTimeout
+        actualExitCode = $actualExitCode
         exitCode = $exitCode
         etlPath = $(if ($startedProfiler) { $etlPath } else { $null })
         profilerStopError = $stopError
