@@ -1,0 +1,11 @@
+[package]
+name = "dwrt-trace"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+dwrt-core = { path = "../dwrt-core" }
+dwrt-ffi = { path = "../dwrt-ffi" }

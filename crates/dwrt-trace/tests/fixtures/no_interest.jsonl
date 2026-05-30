@@ -1,0 +1,3 @@
+{"seq":0,"type":"runtime","phase":"loaded","abi_version":1}
+{"seq":1,"type":"net_route","direction":"outgoing","endpoint_slot":1,"msg_id":72,"recipient_mask":0,"user_message_type":null,"route":"no_interest"}
+{"seq":2,"type":"usercmd_route","slot":1,"command_count":3,"mount_mask":0,"field_mask":15,"route":"count_only"}

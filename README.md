@@ -15,6 +15,7 @@ Early architecture/prototype. Current crates are model/runtime foundations only:
 - `dwrt-hooks` — hook registry model with discovery facts, feature dependencies, frequency class, and shadow/active status.
 - `dwrt-memory` — versioned memory/schema/signature/vtable fact manifests; no raw pointer access.
 - `dwrt-runtime` — opaque runtime object plus minimal exported C ABI for a future native shim.
+- `dwrt-trace` — JSONL trace records, bounded trace buffers, and route-decision comparison helpers for shadow-mode validation.
 
 ## Design rules
 

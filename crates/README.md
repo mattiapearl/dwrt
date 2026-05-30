@@ -11,6 +11,7 @@ Current crates:
 - `dwrt-entity`: typed non-Send controller/pawn/entity handles plus manifest-backed schema field plans.
 - `dwrt-memory`: versioned memory/schema/signature/vtable fact manifests; no raw pointer access.
 - `dwrt-runtime`: opaque runtime object plus minimal C ABI exports for a C++ hook shim.
+- `dwrt-trace`: JSONL trace records, bounded buffers, and route-decision comparison helpers for shadow-mode validation.
 
 Run Rust tests:
 

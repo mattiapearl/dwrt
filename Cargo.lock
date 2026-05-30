@@ -47,3 +47,11 @@ dependencies = [
  "dwrt-core",
  "dwrt-ffi",
 ]
+
+[[package]]
+name = "dwrt-trace"
+version = "0.1.0"
+dependencies = [
+ "dwrt-core",
+ "dwrt-ffi",
+]

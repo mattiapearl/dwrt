@@ -10,6 +10,7 @@ This is not a full Deadlock server clone. It documents the real dedicated server
 - [Hook registry model](hook-registry.md)
 - [Real server surface map](surface-map.md)
 - [Memory manifest layer](memory-manifest.md)
+- [Trace and golden comparison layer](tracing.md)
 - [Entity facades](entity-facades.md)
 - [ProcessUsercmds model](process-usercmds.md)
 - [Engine/modding patterns to compare](patterns.md)

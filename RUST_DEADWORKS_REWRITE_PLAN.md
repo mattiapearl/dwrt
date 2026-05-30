@@ -328,6 +328,7 @@ crates/dwrt-entity                 # typed controller/pawn handles and schema-ba
 crates/dwrt-hooks                  # hook boundary registry, discovery requirements, shadow/active status
 crates/dwrt-runtime                # opaque runtime object + exported C ABI functions
 crates/dwrt-runtime/include/*.h    # tiny C shim header
+crates/dwrt-trace                  # JSONL traces and route-decision comparison helpers
 ```
 
 Validated:
