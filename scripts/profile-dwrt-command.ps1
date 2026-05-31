@@ -168,7 +168,14 @@ try {
         $process.WaitForExit()
     }
 
+    $process.Refresh()
     $actualExitCode = $process.ExitCode
+    if ($null -eq $actualExitCode -and $process.HasExited) {
+        # Some short-lived console helpers can report a null ExitCode through
+        # Start-Process even after WaitForExit() has completed. Treat that as
+        # success only when the process is definitely no longer running.
+        $actualExitCode = 0
+    }
     if ($timedOut) {
         $exitCode = $(if ($AllowTimeout) { 0 } else { 124 })
     }

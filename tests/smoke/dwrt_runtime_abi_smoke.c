@@ -23,6 +23,20 @@ int main(void) {
     if (dwrt_net_remove_serialized(rt, DWRT_NET_OUTGOING, 72) != 1) return 10;
     if (dwrt_net_route(rt, DWRT_NET_OUTGOING, 72, 1, 314) != DWRT_ROUTE_FAST_ONLY) return 11;
 
+    DwrtFastDamageNative damage = {0};
+    DwrtFastEntityIoNative input = {0};
+    if (dwrt_probe_record_damage(rt, &damage) != DWRT_PROBE_ROUTE_NO_INTEREST) return 12;
+    dwrt_probe_set_mount_mask(rt, DWRT_PROBE_MOUNT_DAMAGE | DWRT_PROBE_MOUNT_ENTITY_INPUT);
+    if (dwrt_probe_record_damage(rt, &damage) != DWRT_PROBE_ROUTE_COUNTED) return 13;
+    if (dwrt_probe_record_entity_input(rt, &input) != DWRT_PROBE_ROUTE_COUNTED) return 14;
+    if (dwrt_probe_record_entity_output(rt, &input) != DWRT_PROBE_ROUTE_NO_INTEREST) return 15;
+
+    DwrtProbeCountersNative counters = {0};
+    if (dwrt_probe_snapshot(rt, &counters) != 1) return 16;
+    if (counters.damage_seen != 1 || counters.damage_counted != 1) return 17;
+    if (counters.entity_input_seen != 1 || counters.entity_input_counted != 1) return 18;
+    if (counters.entity_output_seen != 0 || counters.entity_output_counted != 0) return 19;
+
     dwrt_runtime_free(rt);
     return 0;
 }

@@ -14,8 +14,9 @@ Early architecture/prototype. Current crates are model/runtime foundations only:
 - `dwrt-entity` — typed non-Send controller/pawn/entity handles plus schema-backed field plans.
 - `dwrt-hooks` — hook registry model with discovery facts, feature dependencies, frequency class, and shadow/active status.
 - `dwrt-memory` — versioned memory/schema/signature/vtable fact manifests; no raw pointer access.
-- `dwrt-runtime` — opaque runtime object plus minimal exported C ABI for a future native shim.
+- `dwrt-runtime` — opaque runtime object plus exported C ABI for routing and count-only native probes.
 - `dwrt-trace` — JSONL trace records, bounded trace buffers, and route-decision comparison helpers for shadow-mode validation.
+- `native/dwrt-host` — DWRT-owned native signature resolver/host smoke for validating the real `server.dll` before hook installation.
 
 ## Design rules
 
@@ -46,10 +47,30 @@ Windows/MSVC C ABI smoke test:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-dwrt-runtime.ps1
 ```
 
+DWRT-native host/signature smoke test:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-dwrt-host.ps1 -NoProfile -MappedModuleCheck
+```
+
+DWRT live dedicated-server bootstrap smoke:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-dwrt-live-server.ps1
+```
+
 Runtime benchmark with profiler wrapper:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bench-dwrt-runtime.ps1
 ```
+
+Native stack profiling/debugging test suite:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-dwrt-native-stack.ps1
+```
+
+Add `-IncludeLiveServer -IncludeHookInstall` when you want the suite to validate real dedicated-server injection and DWRT-owned hook installation.
 
 ETW profiling requires an elevated/admin shell. Use `-RequireProfiler` for runs where a missing profiler artifact should fail the run.

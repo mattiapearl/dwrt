@@ -1,7 +1,12 @@
 use dwrt_core::usercmd::{UsercmdMount, UsercmdRoute};
-use dwrt_ffi::{DWRT_ABI_VERSION, NetMessageDirection};
+use dwrt_ffi::{
+    DWRT_ABI_VERSION, DwrtProbeCountersNative, FastDamageNative, FastEntityIoNative,
+    FastEntityTouchNative, NetMessageDirection,
+};
 
-use crate::{DwrtRuntime, route_code, usercmd_route_code};
+use crate::{
+    DwrtRuntime, dwrt_probe_route_no_interest, probe_route_code, route_code, usercmd_route_code,
+};
 
 #[unsafe(no_mangle)]
 pub extern "C" fn dwrt_abi_version() -> u32 {
@@ -164,6 +169,131 @@ pub unsafe extern "C" fn dwrt_usercmd_route(runtime: *const DwrtRuntime) -> u32 
     usercmd_route_code(runtime.usercmd().route())
 }
 
+/// Sets the mounted DWRT-native probe mask.
+///
+/// # Safety
+///
+/// `runtime` must be a valid pointer returned by `dwrt_runtime_new`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn dwrt_probe_set_mount_mask(runtime: *const DwrtRuntime, mask: u32) {
+    if let Some(runtime) = as_runtime(runtime) {
+        runtime.probe().set_mount_mask(mask);
+    }
+}
+
+/// Records a compact damage probe event. Return codes match `dwrt_probe_route_*` constants.
+///
+/// # Safety
+///
+/// `runtime` must be a valid pointer returned by `dwrt_runtime_new`. `event` must be null or point
+/// to a valid `FastDamageNative` for the duration of this call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn dwrt_probe_record_damage(
+    runtime: *const DwrtRuntime,
+    event: *const FastDamageNative,
+) -> u32 {
+    let Some(runtime) = as_runtime(runtime) else {
+        return dwrt_probe_route_no_interest();
+    };
+    let Some(event) = as_ref(event) else {
+        return dwrt_probe_route_no_interest();
+    };
+    probe_route_code(runtime.probe().record_damage(event))
+}
+
+/// Records a compact entity input probe event. Return codes match `dwrt_probe_route_*` constants.
+///
+/// # Safety
+///
+/// `runtime` must be a valid pointer returned by `dwrt_runtime_new`. `event` must be null or point
+/// to a valid `FastEntityIoNative` for the duration of this call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn dwrt_probe_record_entity_input(
+    runtime: *const DwrtRuntime,
+    event: *const FastEntityIoNative,
+) -> u32 {
+    let Some(runtime) = as_runtime(runtime) else {
+        return dwrt_probe_route_no_interest();
+    };
+    let Some(event) = as_ref(event) else {
+        return dwrt_probe_route_no_interest();
+    };
+    probe_route_code(runtime.probe().record_entity_input(event))
+}
+
+/// Records a compact entity output probe event. Return codes match `dwrt_probe_route_*` constants.
+///
+/// # Safety
+///
+/// `runtime` must be a valid pointer returned by `dwrt_runtime_new`. `event` must be null or point
+/// to a valid `FastEntityIoNative` for the duration of this call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn dwrt_probe_record_entity_output(
+    runtime: *const DwrtRuntime,
+    event: *const FastEntityIoNative,
+) -> u32 {
+    let Some(runtime) = as_runtime(runtime) else {
+        return dwrt_probe_route_no_interest();
+    };
+    let Some(event) = as_ref(event) else {
+        return dwrt_probe_route_no_interest();
+    };
+    probe_route_code(runtime.probe().record_entity_output(event))
+}
+
+/// Records a compact entity touch probe event. Return codes match `dwrt_probe_route_*` constants.
+///
+/// # Safety
+///
+/// `runtime` must be a valid pointer returned by `dwrt_runtime_new`. `event` must be null or point
+/// to a valid `FastEntityTouchNative` for the duration of this call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn dwrt_probe_record_entity_touch(
+    runtime: *const DwrtRuntime,
+    event: *const FastEntityTouchNative,
+) -> u32 {
+    let Some(runtime) = as_runtime(runtime) else {
+        return dwrt_probe_route_no_interest();
+    };
+    let Some(event) = as_ref(event) else {
+        return dwrt_probe_route_no_interest();
+    };
+    probe_route_code(runtime.probe().record_entity_touch(event))
+}
+
+/// Copies probe counters into `out`.
+///
+/// # Safety
+///
+/// `runtime` must be a valid pointer returned by `dwrt_runtime_new`. `out` must be null or point to
+/// writable `DwrtProbeCountersNative` storage.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn dwrt_probe_snapshot(
+    runtime: *const DwrtRuntime,
+    out: *mut DwrtProbeCountersNative,
+) -> u8 {
+    let Some(runtime) = as_runtime(runtime) else {
+        return 0;
+    };
+    if out.is_null() {
+        return 0;
+    }
+    unsafe { *out = runtime.probe().snapshot() };
+    1
+}
+
+/// Resets probe counters without changing the mount mask.
+///
+/// # Safety
+///
+/// `runtime` must be a valid pointer returned by `dwrt_runtime_new`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn dwrt_probe_reset_counters(runtime: *const DwrtRuntime) {
+    if let Some(runtime) = as_runtime(runtime) {
+        runtime.probe().reset_counters();
+    }
+}
+
 fn with_runtime(runtime: *const DwrtRuntime, f: impl FnOnce(&DwrtRuntime) -> bool) -> u8 {
     as_runtime(runtime).is_some_and(f) as u8
 }
@@ -184,5 +314,13 @@ fn as_runtime<'a>(runtime: *const DwrtRuntime) -> Option<&'a DwrtRuntime> {
         None
     } else {
         Some(unsafe { &*runtime })
+    }
+}
+
+fn as_ref<'a, T>(value: *const T) -> Option<&'a T> {
+    if value.is_null() {
+        None
+    } else {
+        Some(unsafe { &*value })
     }
 }

@@ -32,9 +32,65 @@ enum {
     DWRT_USERCMD_MOUNT_FULL_PROTOBUF = 1u << 0,
     DWRT_USERCMD_MOUNT_FAST_READ = 1u << 1,
     DWRT_USERCMD_MOUNT_BUTTON_TRIGGERS = 1u << 2,
+
+    DWRT_PROBE_MOUNT_DAMAGE = 1u << 0,
+    DWRT_PROBE_MOUNT_ENTITY_INPUT = 1u << 1,
+    DWRT_PROBE_MOUNT_ENTITY_OUTPUT = 1u << 2,
+    DWRT_PROBE_MOUNT_ENTITY_TOUCH = 1u << 3,
+
+    DWRT_PROBE_ROUTE_NO_INTEREST = 0,
+    DWRT_PROBE_ROUTE_COUNTED = 1,
 };
 
 typedef struct DwrtRuntime DwrtRuntime;
+
+typedef struct DwrtFastDamageNative {
+    uint32_t victim_handle;
+    uint32_t attacker_handle;
+    uint32_t inflictor_handle;
+    uint32_t ability_handle;
+    uint8_t victim_team;
+    uint8_t attacker_team;
+    uint8_t _pad0[2];
+    uint32_t victim_class_hash;
+    uint32_t attacker_class_hash;
+    float damage;
+    int32_t damage_type;
+    uint64_t damage_flags;
+} DwrtFastDamageNative;
+
+typedef struct DwrtFastEntityIoNative {
+    uint32_t entity_handle;
+    uint32_t activator_handle;
+    uint32_t caller_handle;
+    uint32_t class_hash;
+    uint32_t name_hash;
+    uint32_t value_hash;
+    uint8_t phase;
+    uint8_t _pad0[7];
+} DwrtFastEntityIoNative;
+
+typedef struct DwrtFastEntityTouchNative {
+    uint32_t entity_handle;
+    uint32_t other_handle;
+    uint32_t entity_class_hash;
+    uint32_t other_class_hash;
+    uint8_t phase;
+    uint8_t _pad0[7];
+} DwrtFastEntityTouchNative;
+
+typedef struct DwrtProbeCountersNative {
+    uint32_t mount_mask;
+    uint32_t _pad0;
+    uint64_t damage_seen;
+    uint64_t damage_counted;
+    uint64_t entity_input_seen;
+    uint64_t entity_input_counted;
+    uint64_t entity_output_seen;
+    uint64_t entity_output_counted;
+    uint64_t entity_touch_seen;
+    uint64_t entity_touch_counted;
+} DwrtProbeCountersNative;
 
 DWRT_API uint32_t dwrt_abi_version(void);
 DWRT_API DwrtRuntime *dwrt_runtime_new(void);
@@ -55,6 +111,14 @@ DWRT_API uint32_t dwrt_net_route(
 
 DWRT_API void dwrt_usercmd_set_mount_mask(const DwrtRuntime *runtime, uint32_t mask);
 DWRT_API uint32_t dwrt_usercmd_route(const DwrtRuntime *runtime);
+
+DWRT_API void dwrt_probe_set_mount_mask(const DwrtRuntime *runtime, uint32_t mask);
+DWRT_API uint32_t dwrt_probe_record_damage(const DwrtRuntime *runtime, const DwrtFastDamageNative *event);
+DWRT_API uint32_t dwrt_probe_record_entity_input(const DwrtRuntime *runtime, const DwrtFastEntityIoNative *event);
+DWRT_API uint32_t dwrt_probe_record_entity_output(const DwrtRuntime *runtime, const DwrtFastEntityIoNative *event);
+DWRT_API uint32_t dwrt_probe_record_entity_touch(const DwrtRuntime *runtime, const DwrtFastEntityTouchNative *event);
+DWRT_API uint8_t dwrt_probe_snapshot(const DwrtRuntime *runtime, DwrtProbeCountersNative *out);
+DWRT_API void dwrt_probe_reset_counters(const DwrtRuntime *runtime);
 
 #ifdef __cplusplus
 }

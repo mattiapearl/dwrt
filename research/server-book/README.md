@@ -13,6 +13,10 @@ This is not a full Deadlock server clone. It documents the real dedicated server
 - [Benchmarking and profiling](../benchmarks/README.md)
 - [Trace and golden comparison layer](tracing.md)
 - [Entity facades](entity-facades.md)
+- [Map entities and gameplay control](map-entities-gameplay-control.md)
+- [Map/NPC/Pulse/FFA RE pass](map-npc-ffa-re-20260530.md)
+- [DWRT-native probe plan](dwrt-native-probe-plan.md)
+- [Runtime testpoints and validation gates](runtime-testpoints.md)
 - [ProcessUsercmds model](process-usercmds.md)
 - [Engine/modding patterns to compare](patterns.md)
 

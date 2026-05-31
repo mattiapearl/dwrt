@@ -11,7 +11,7 @@ Current crates:
 - `dwrt-hooks`: hook boundary registry model with discovery facts, feature dependencies, frequency class, and shadow/active status.
 - `dwrt-entity`: typed non-Send controller/pawn/entity handles plus manifest-backed schema field plans.
 - `dwrt-memory`: versioned memory/schema/signature/vtable fact manifests; no raw pointer access.
-- `dwrt-runtime`: opaque runtime object plus minimal C ABI exports for a C++ hook shim.
+- `dwrt-runtime`: opaque runtime object plus C ABI exports for routing and count-only native probes.
 - `dwrt-trace`: JSONL trace records, bounded buffers, and route-decision comparison helpers for shadow-mode validation.
 
 Run Rust tests:
@@ -24,6 +24,18 @@ Run the C ABI smoke test on Windows/MSVC:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-dwrt-runtime.ps1
+```
+
+Run the DWRT-native host/signature smoke test on Windows/MSVC:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-dwrt-host.ps1 -NoProfile -MappedModuleCheck
+```
+
+Run the live dedicated-server bootstrap smoke:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-dwrt-live-server.ps1
 ```
 
 Run profiled runtime benchmarks:

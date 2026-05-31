@@ -1,9 +1,12 @@
 use dwrt_core::net::NetInterest;
 use dwrt_core::usercmd::UsercmdPolicy;
 
+use crate::probe::ProbeState;
+
 pub struct DwrtRuntime {
     net: NetInterest,
     usercmd: UsercmdPolicy,
+    probe: ProbeState,
 }
 
 impl DwrtRuntime {
@@ -12,6 +15,7 @@ impl DwrtRuntime {
         Self {
             net: NetInterest::new(),
             usercmd: UsercmdPolicy::new(),
+            probe: ProbeState::new(),
         }
     }
 
@@ -23,6 +27,11 @@ impl DwrtRuntime {
     #[must_use]
     pub fn usercmd(&self) -> &UsercmdPolicy {
         &self.usercmd
+    }
+
+    #[must_use]
+    pub const fn probe(&self) -> &ProbeState {
+        &self.probe
     }
 }
 

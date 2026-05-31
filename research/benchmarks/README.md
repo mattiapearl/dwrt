@@ -47,6 +47,29 @@ To disable profiling explicitly:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bench-dwrt-runtime.ps1 -NoProfile
 ```
 
+## Native stack test suite
+
+Use the native stack suite to exercise the profiling/debugging harnesses together:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-dwrt-native-stack.ps1
+```
+
+By default this runs Rust workspace tests, clippy, the runtime C ABI smoke, and the DWRT host resolver/bootstrap smoke. Add live-server gates when you need to validate injection and hook installation against a real dedicated server:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-dwrt-native-stack.ps1 `
+  -IncludeLiveServer `
+  -IncludeHookInstall `
+  -WaitServerModuleSeconds 45 `
+  -HoldSeconds 3 `
+  -TimeoutSeconds 90
+```
+
+The suite writes `dwrt-native-stack-test.json`, `dwrt-native-stack-test.md`, per-step logs, and child smoke artifacts under `research/benchmarks/runs/<timestamp>-dwrt-native-stack-test/`.
+
+Small curated examples of ignored run artifacts live under `research/benchmarks/artifacts/`. Do not commit full run directories or ETW `.etl` files.
+
 ## Generic profiler wrapper
 
 Use this for future in-game smoke commands:
@@ -69,6 +92,10 @@ Artifacts:
 ## Reports
 
 - `runtime-baseline-20260530.md` — Rust runtime route/trace microbenchmark baseline.
+- `dwrt-host-signature-smoke-20260530.md` — DWRT-native runtime probe ABI and `server.dll` signature resolver smoke.
+- `dwrt-live-server-bootstrap-20260530.md` — DWRT host loaded into a real running dedicated server, resolving live `server.dll` without Deadworks.
+- `dwrt-live-hook-install-20260530.md` — first DWRT-owned live-server probe hook install smoke without Deadworks.
+- `dwrt-manual-probe-session-20260531.md` — real client manual gameplay probe session with live damage/output counters.
 - `deadworks-shadow-boot-20260530.md` — real server boot-only DWRT load proof.
 - `client-shadow-smoke-attempt-20260530-invalid.md` — invalid client attempt caused by stale server processes.
 - `client-shadow-smoke-20260530.md` — first valid client-connected shadow route proof and longframe classification.

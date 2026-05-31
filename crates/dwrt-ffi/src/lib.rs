@@ -10,6 +10,11 @@ use core::ffi::{c_char, c_void};
 pub const DWRT_ABI_VERSION: u32 = 1;
 pub const DWRT_MAX_TRACKED_MESSAGE_ID: usize = 4096;
 
+pub const DWRT_PROBE_MOUNT_DAMAGE: u32 = 1u32 << 0;
+pub const DWRT_PROBE_MOUNT_ENTITY_INPUT: u32 = 1u32 << 1;
+pub const DWRT_PROBE_MOUNT_ENTITY_OUTPUT: u32 = 1u32 << 2;
+pub const DWRT_PROBE_MOUNT_ENTITY_TOUCH: u32 = 1u32 << 3;
+
 #[repr(i32)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NetMessageDirection {
@@ -69,6 +74,68 @@ pub struct FastNetMessageNative {
     pub _pad1: [u8; 7],
 }
 
+/// Compact native-extracted damage event metadata.
+///
+/// This is intentionally handle/hash based. The native host owns engine pointer
+/// lifetimes and must not pass raw entity pointers into public Rust/plugin APIs.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct FastDamageNative {
+    pub victim_handle: u32,
+    pub attacker_handle: u32,
+    pub inflictor_handle: u32,
+    pub ability_handle: u32,
+    pub victim_team: u8,
+    pub attacker_team: u8,
+    pub _pad0: [u8; 2],
+    pub victim_class_hash: u32,
+    pub attacker_class_hash: u32,
+    pub damage: f32,
+    pub damage_type: i32,
+    pub damage_flags: u64,
+}
+
+/// Compact native-extracted entity I/O event metadata.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FastEntityIoNative {
+    pub entity_handle: u32,
+    pub activator_handle: u32,
+    pub caller_handle: u32,
+    pub class_hash: u32,
+    pub name_hash: u32,
+    pub value_hash: u32,
+    pub phase: u8,
+    pub _pad0: [u8; 7],
+}
+
+/// Compact native-extracted touch event metadata.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FastEntityTouchNative {
+    pub entity_handle: u32,
+    pub other_handle: u32,
+    pub entity_class_hash: u32,
+    pub other_class_hash: u32,
+    pub phase: u8,
+    pub _pad0: [u8; 7],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DwrtProbeCountersNative {
+    pub mount_mask: u32,
+    pub _pad0: u32,
+    pub damage_seen: u64,
+    pub damage_counted: u64,
+    pub entity_input_seen: u64,
+    pub entity_input_counted: u64,
+    pub entity_output_seen: u64,
+    pub entity_output_counted: u64,
+    pub entity_touch_seen: u64,
+    pub entity_touch_counted: u64,
+}
+
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct DwrtHostApi {
@@ -92,6 +159,18 @@ mod tests {
     fn fast_net_message_layout_is_stable() {
         assert_eq!(size_of::<FastNetMessageNative>(), 48);
         assert_eq!(align_of::<FastNetMessageNative>(), 8);
+    }
+
+    #[test]
+    fn probe_event_layouts_are_stable() {
+        assert_eq!(size_of::<FastDamageNative>(), 48);
+        assert_eq!(align_of::<FastDamageNative>(), 8);
+        assert_eq!(size_of::<FastEntityIoNative>(), 32);
+        assert_eq!(align_of::<FastEntityIoNative>(), 4);
+        assert_eq!(size_of::<FastEntityTouchNative>(), 24);
+        assert_eq!(align_of::<FastEntityTouchNative>(), 4);
+        assert_eq!(size_of::<DwrtProbeCountersNative>(), 72);
+        assert_eq!(align_of::<DwrtProbeCountersNative>(), 8);
     }
 
     #[test]

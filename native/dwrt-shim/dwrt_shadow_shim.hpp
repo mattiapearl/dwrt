@@ -14,6 +14,7 @@ struct DwrtShadowCounters {
     std::uint64_t runtime_create_failures = 0;
     std::uint64_t net_routes[4] = {};
     std::uint64_t usercmd_routes[5] = {};
+    std::uint64_t probe_routes[2] = {};
     std::uint64_t qpc_ticks_per_second = 0;
     std::uint64_t slow_threshold_ticks = 0;
     std::uint64_t net_route_total_ticks = 0;
@@ -22,6 +23,9 @@ struct DwrtShadowCounters {
     std::uint64_t usercmd_route_total_ticks = 0;
     std::uint64_t usercmd_route_max_ticks = 0;
     std::uint64_t usercmd_route_slow_calls = 0;
+    std::uint64_t probe_route_total_ticks = 0;
+    std::uint64_t probe_route_max_ticks = 0;
+    std::uint64_t probe_route_slow_calls = 0;
 };
 
 class DwrtShadowShim {
@@ -47,6 +51,7 @@ public:
     bool add_net_user_fast(std::int32_t user_msg_id);
     bool add_net_serialized(std::int32_t direction, std::int32_t msg_id);
     void set_usercmd_mount_mask(std::uint32_t mask);
+    void set_probe_mount_mask(std::uint32_t mask);
 
     std::uint32_t shadow_route_net(
         std::int32_t direction,
@@ -54,6 +59,12 @@ public:
         std::uint8_t has_user_msg_id,
         std::int32_t user_msg_id);
     std::uint32_t shadow_route_usercmd();
+    std::uint32_t probe_record_damage(const DwrtFastDamageNative& event);
+    std::uint32_t probe_record_entity_input(const DwrtFastEntityIoNative& event);
+    std::uint32_t probe_record_entity_output(const DwrtFastEntityIoNative& event);
+    std::uint32_t probe_record_entity_touch(const DwrtFastEntityTouchNative& event);
+    std::uint8_t probe_snapshot(DwrtProbeCountersNative& out);
+    void probe_reset_counters();
 
     [[nodiscard]] const DwrtShadowCounters& counters() const;
 
@@ -66,6 +77,12 @@ private:
     using NetRouteFn = std::uint32_t (*)(const DwrtRuntime*, std::int32_t, std::int32_t, std::uint8_t, std::int32_t);
     using UsercmdSetMountMaskFn = void (*)(const DwrtRuntime*, std::uint32_t);
     using UsercmdRouteFn = std::uint32_t (*)(const DwrtRuntime*);
+    using ProbeSetMountMaskFn = void (*)(const DwrtRuntime*, std::uint32_t);
+    using ProbeRecordDamageFn = std::uint32_t (*)(const DwrtRuntime*, const DwrtFastDamageNative*);
+    using ProbeRecordEntityIoFn = std::uint32_t (*)(const DwrtRuntime*, const DwrtFastEntityIoNative*);
+    using ProbeRecordEntityTouchFn = std::uint32_t (*)(const DwrtRuntime*, const DwrtFastEntityTouchNative*);
+    using ProbeSnapshotFn = std::uint8_t (*)(const DwrtRuntime*, DwrtProbeCountersNative*);
+    using ProbeResetCountersFn = void (*)(const DwrtRuntime*);
 
     void* module_ = nullptr;
     DwrtRuntime* runtime_ = nullptr;
@@ -80,6 +97,13 @@ private:
     NetRouteFn net_route_ = nullptr;
     UsercmdSetMountMaskFn usercmd_set_mount_mask_ = nullptr;
     UsercmdRouteFn usercmd_route_ = nullptr;
+    ProbeSetMountMaskFn probe_set_mount_mask_ = nullptr;
+    ProbeRecordDamageFn probe_record_damage_ = nullptr;
+    ProbeRecordEntityIoFn probe_record_entity_input_ = nullptr;
+    ProbeRecordEntityIoFn probe_record_entity_output_ = nullptr;
+    ProbeRecordEntityTouchFn probe_record_entity_touch_ = nullptr;
+    ProbeSnapshotFn probe_snapshot_ = nullptr;
+    ProbeResetCountersFn probe_reset_counters_ = nullptr;
 };
 
 }  // namespace dwrt::shim

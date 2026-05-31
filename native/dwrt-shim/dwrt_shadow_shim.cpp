@@ -92,7 +92,14 @@ bool DwrtShadowShim::load(const wchar_t* runtime_path, std::string& error) {
         !bind(net_add_user_fast_, "dwrt_net_add_user_fast") ||
         !bind(net_route_, "dwrt_net_route") ||
         !bind(usercmd_set_mount_mask_, "dwrt_usercmd_set_mount_mask") ||
-        !bind(usercmd_route_, "dwrt_usercmd_route")) {
+        !bind(usercmd_route_, "dwrt_usercmd_route") ||
+        !bind(probe_set_mount_mask_, "dwrt_probe_set_mount_mask") ||
+        !bind(probe_record_damage_, "dwrt_probe_record_damage") ||
+        !bind(probe_record_entity_input_, "dwrt_probe_record_entity_input") ||
+        !bind(probe_record_entity_output_, "dwrt_probe_record_entity_output") ||
+        !bind(probe_record_entity_touch_, "dwrt_probe_record_entity_touch") ||
+        !bind(probe_snapshot_, "dwrt_probe_snapshot") ||
+        !bind(probe_reset_counters_, "dwrt_probe_reset_counters")) {
         FreeLibrary(module);
         abi_version_ = nullptr;
         runtime_new_ = nullptr;
@@ -102,6 +109,13 @@ bool DwrtShadowShim::load(const wchar_t* runtime_path, std::string& error) {
         net_route_ = nullptr;
         usercmd_set_mount_mask_ = nullptr;
         usercmd_route_ = nullptr;
+        probe_set_mount_mask_ = nullptr;
+        probe_record_damage_ = nullptr;
+        probe_record_entity_input_ = nullptr;
+        probe_record_entity_output_ = nullptr;
+        probe_record_entity_touch_ = nullptr;
+        probe_snapshot_ = nullptr;
+        probe_reset_counters_ = nullptr;
         return false;
     }
 
@@ -127,6 +141,13 @@ void DwrtShadowShim::unload() {
     net_route_ = nullptr;
     usercmd_set_mount_mask_ = nullptr;
     usercmd_route_ = nullptr;
+    probe_set_mount_mask_ = nullptr;
+    probe_record_damage_ = nullptr;
+    probe_record_entity_input_ = nullptr;
+    probe_record_entity_output_ = nullptr;
+    probe_record_entity_touch_ = nullptr;
+    probe_snapshot_ = nullptr;
+    probe_reset_counters_ = nullptr;
 }
 
 bool DwrtShadowShim::create_runtime(std::string& error) {
@@ -201,6 +222,12 @@ void DwrtShadowShim::set_usercmd_mount_mask(std::uint32_t mask) {
     }
 }
 
+void DwrtShadowShim::set_probe_mount_mask(std::uint32_t mask) {
+    if (runtime_ != nullptr && probe_set_mount_mask_ != nullptr) {
+        probe_set_mount_mask_(runtime_, mask);
+    }
+}
+
 std::uint32_t DwrtShadowShim::shadow_route_net(
     std::int32_t direction,
     std::int32_t msg_id,
@@ -243,6 +270,99 @@ std::uint32_t DwrtShadowShim::shadow_route_usercmd() {
             counters_.usercmd_route_slow_calls);
     }
     return route;
+}
+
+std::uint32_t DwrtShadowShim::probe_record_damage(const DwrtFastDamageNative& event) {
+    const std::uint64_t start = timing_enabled_ ? qpc_now_ticks() : 0;
+
+    std::uint32_t route = DWRT_PROBE_ROUTE_NO_INTEREST;
+    if (runtime_ != nullptr && probe_record_damage_ != nullptr) {
+        route = probe_record_damage_(runtime_, &event);
+    }
+    count_route(counters_.probe_routes, std::size(counters_.probe_routes), route);
+
+    if (timing_enabled_) {
+        record_duration(
+            qpc_now_ticks() - start,
+            counters_.slow_threshold_ticks,
+            counters_.probe_route_total_ticks,
+            counters_.probe_route_max_ticks,
+            counters_.probe_route_slow_calls);
+    }
+    return route;
+}
+
+std::uint32_t DwrtShadowShim::probe_record_entity_input(const DwrtFastEntityIoNative& event) {
+    const std::uint64_t start = timing_enabled_ ? qpc_now_ticks() : 0;
+
+    std::uint32_t route = DWRT_PROBE_ROUTE_NO_INTEREST;
+    if (runtime_ != nullptr && probe_record_entity_input_ != nullptr) {
+        route = probe_record_entity_input_(runtime_, &event);
+    }
+    count_route(counters_.probe_routes, std::size(counters_.probe_routes), route);
+
+    if (timing_enabled_) {
+        record_duration(
+            qpc_now_ticks() - start,
+            counters_.slow_threshold_ticks,
+            counters_.probe_route_total_ticks,
+            counters_.probe_route_max_ticks,
+            counters_.probe_route_slow_calls);
+    }
+    return route;
+}
+
+std::uint32_t DwrtShadowShim::probe_record_entity_output(const DwrtFastEntityIoNative& event) {
+    const std::uint64_t start = timing_enabled_ ? qpc_now_ticks() : 0;
+
+    std::uint32_t route = DWRT_PROBE_ROUTE_NO_INTEREST;
+    if (runtime_ != nullptr && probe_record_entity_output_ != nullptr) {
+        route = probe_record_entity_output_(runtime_, &event);
+    }
+    count_route(counters_.probe_routes, std::size(counters_.probe_routes), route);
+
+    if (timing_enabled_) {
+        record_duration(
+            qpc_now_ticks() - start,
+            counters_.slow_threshold_ticks,
+            counters_.probe_route_total_ticks,
+            counters_.probe_route_max_ticks,
+            counters_.probe_route_slow_calls);
+    }
+    return route;
+}
+
+std::uint32_t DwrtShadowShim::probe_record_entity_touch(const DwrtFastEntityTouchNative& event) {
+    const std::uint64_t start = timing_enabled_ ? qpc_now_ticks() : 0;
+
+    std::uint32_t route = DWRT_PROBE_ROUTE_NO_INTEREST;
+    if (runtime_ != nullptr && probe_record_entity_touch_ != nullptr) {
+        route = probe_record_entity_touch_(runtime_, &event);
+    }
+    count_route(counters_.probe_routes, std::size(counters_.probe_routes), route);
+
+    if (timing_enabled_) {
+        record_duration(
+            qpc_now_ticks() - start,
+            counters_.slow_threshold_ticks,
+            counters_.probe_route_total_ticks,
+            counters_.probe_route_max_ticks,
+            counters_.probe_route_slow_calls);
+    }
+    return route;
+}
+
+std::uint8_t DwrtShadowShim::probe_snapshot(DwrtProbeCountersNative& out) {
+    if (runtime_ == nullptr || probe_snapshot_ == nullptr) {
+        return 0;
+    }
+    return probe_snapshot_(runtime_, &out);
+}
+
+void DwrtShadowShim::probe_reset_counters() {
+    if (runtime_ != nullptr && probe_reset_counters_ != nullptr) {
+        probe_reset_counters_(runtime_);
+    }
 }
 
 const DwrtShadowCounters& DwrtShadowShim::counters() const {
