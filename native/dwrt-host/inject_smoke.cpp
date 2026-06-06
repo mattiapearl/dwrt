@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -466,8 +467,14 @@ std::string build_injector_summary(
     DWORD probe_mount_status,
     DWORD probe_reset_status,
     DWORD probe_snapshot_status,
+    DWORD walker_patrol_snapshot_status,
+    DWORD friendly_fire_snapshot_status,
+    DWORD target_probe_snapshot_status,
     const DwrtHostSnapshot& snapshot,
     const DwrtProbeCountersNative& probe_snapshot,
+    const DwrtWalkerPatrolSnapshot& walker_patrol_snapshot,
+    const DwrtFriendlyFireSnapshot& friendly_fire_snapshot,
+    const DwrtTargetProbeSnapshot& target_probe_snapshot,
     const std::string& finish_reason,
     const std::string& error) {
     std::ostringstream out;
@@ -490,6 +497,9 @@ std::string build_injector_summary(
     out << "  \"probeMountStatus\": " << probe_mount_status << ",\n";
     out << "  \"probeResetStatus\": " << probe_reset_status << ",\n";
     out << "  \"probeSnapshotStatus\": " << probe_snapshot_status << ",\n";
+    out << "  \"walkerPatrolSnapshotStatus\": " << walker_patrol_snapshot_status << ",\n";
+    out << "  \"friendlyFireSnapshotStatus\": " << friendly_fire_snapshot_status << ",\n";
+    out << "  \"targetProbeSnapshotStatus\": " << target_probe_snapshot_status << ",\n";
     out << "  \"snapshot\": {\n";
     out << "    \"initialized\": " << snapshot.initialized << ",\n";
     out << "    \"runtimeLoaded\": " << snapshot.runtime_loaded << ",\n";
@@ -520,6 +530,161 @@ std::string build_injector_summary(
     out << "    \"entityTouchSeen\": " << probe_snapshot.entity_touch_seen << ",\n";
     out << "    \"entityTouchCounted\": " << probe_snapshot.entity_touch_counted << "\n";
     out << "  },\n";
+    out << "  \"walkerPatrol\": {\n";
+    out << "    \"enabled\": " << walker_patrol_snapshot.enabled << ",\n";
+    out << "    \"stride\": " << walker_patrol_snapshot.stride << ",\n";
+    out << "    \"waypointCount\": " << walker_patrol_snapshot.waypoint_count << ",\n";
+    out << "    \"mode\": " << walker_patrol_snapshot.mode << ",\n";
+    out << "    \"damageCallbacks\": " << walker_patrol_snapshot.damage_callbacks << ",\n";
+    out << "    \"candidateWalkers\": " << walker_patrol_snapshot.candidate_walkers << ",\n";
+    out << "    \"nonWalkerVictims\": " << walker_patrol_snapshot.non_walker_victims << ",\n";
+    out << "    \"skippedRecursive\": " << walker_patrol_snapshot.skipped_recursive << ",\n";
+    out << "    \"missingIdentity\": " << walker_patrol_snapshot.missing_identity << ",\n";
+    out << "    \"missingDesignerName\": " << walker_patrol_snapshot.missing_designer_name << ",\n";
+    out << "    \"teleportAttempts\": " << walker_patrol_snapshot.teleport_attempts << ",\n";
+    out << "    \"teleportCalls\": " << walker_patrol_snapshot.teleport_calls << ",\n";
+    out << "    \"bodyComponentMissing\": " << walker_patrol_snapshot.body_component_missing << ",\n";
+    out << "    \"sceneNodeMissing\": " << walker_patrol_snapshot.scene_node_missing << ",\n";
+    out << "    \"originReadAttempts\": " << walker_patrol_snapshot.origin_read_attempts << ",\n";
+    out << "    \"originReadSuccesses\": " << walker_patrol_snapshot.origin_read_successes << ",\n";
+    out << "    \"originReadFailures\": " << walker_patrol_snapshot.origin_read_failures << "\n";
+    out << "  },\n";
+    out << "  \"friendlyFire\": {\n";
+    out << "    \"enabled\": " << friendly_fire_snapshot.enabled << ",\n";
+    out << "    \"mode\": " << friendly_fire_snapshot.mode << ",\n";
+    out << "    \"scope\": " << friendly_fire_snapshot.scope << ",\n";
+    out << "    \"localTeam\": " << friendly_fire_snapshot.local_team << ",\n";
+    out << "    \"damageCallbacks\": " << friendly_fire_snapshot.damage_callbacks << ",\n";
+    out << "    \"skippedRecursive\": " << friendly_fire_snapshot.skipped_recursive << ",\n";
+    out << "    \"missingIdentity\": " << friendly_fire_snapshot.missing_identity << ",\n";
+    out << "    \"missingDesignerName\": " << friendly_fire_snapshot.missing_designer_name << ",\n";
+    out << "    \"nonObjectiveVictims\": " << friendly_fire_snapshot.non_objective_victims << ",\n";
+    out << "    \"objectiveCandidates\": " << friendly_fire_snapshot.objective_candidates << ",\n";
+    out << "    \"invalidTeam\": " << friendly_fire_snapshot.invalid_team << ",\n";
+    out << "    \"teamSpoofAttempts\": " << friendly_fire_snapshot.team_spoof_attempts << ",\n";
+    out << "    \"teamSpoofApplied\": " << friendly_fire_snapshot.team_spoof_applied << ",\n";
+    out << "    \"teamSpoofRestored\": " << friendly_fire_snapshot.team_spoof_restored << "\n";
+    out << "  },\n";
+    out << "  \"targetProbe\": {\n";
+    out << "    \"enabled\": " << target_probe_snapshot.enabled << ",\n";
+    out << "    \"sourceTeamSpoofEnabled\": " << target_probe_snapshot.source_team_spoof_enabled << ",\n";
+    out << "    \"targetTeamSpoofEnabled\": " << target_probe_snapshot.target_team_spoof_enabled << ",\n";
+    out << "    \"targetTeamSpoofTeam\": " << target_probe_snapshot.target_team_spoof_team << ",\n";
+    out << "    \"targetBitsetAllowEnabled\": " << target_probe_snapshot.target_bitset_allow_enabled << ",\n";
+    out << "    \"forceFilterSameTeamAllowEnabled\": " << target_probe_snapshot.force_filter_same_team_allow_enabled << ",\n";
+    out << "    \"forceCallerSameTeamAllowEnabled\": " << target_probe_snapshot.force_caller_same_team_allow_enabled << ",\n";
+    out << "    \"forceFilterObjectiveAllowEnabled\": " << target_probe_snapshot.force_filter_objective_allow_enabled << ",\n";
+    out << "    \"forceCallerObjectiveAllowEnabled\": " << target_probe_snapshot.force_caller_objective_allow_enabled << ",\n";
+    out << "    \"forceSecondaryAllowEnabled\": " << target_probe_snapshot.force_secondary_allow_enabled << ",\n";
+    out << "    \"neutralSimulationEnabled\": " << target_probe_snapshot.neutral_simulation_enabled << ",\n";
+    out << "    \"classifierSpoofEnabled\": " << target_probe_snapshot.classifier_spoof_enabled << ",\n";
+    out << "    \"classifierSpoofBit\": " << target_probe_snapshot.classifier_spoof_bit << ",\n";
+    out << "    \"globalNeutralizeEnabled\": " << target_probe_snapshot.global_neutralize_enabled << ",\n";
+    out << "    \"globalNeutralizeTeam\": " << target_probe_snapshot.global_neutralize_team << ",\n";
+    out << "    \"lastSourceTeam\": " << target_probe_snapshot.last_source_team << ",\n";
+    out << "    \"lastTargetTeam\": " << target_probe_snapshot.last_target_team << ",\n";
+    out << "    \"lastTargetUnitType\": " << target_probe_snapshot.last_target_unit_type << ",\n";
+    out << "    \"lastFilterResult\": " << target_probe_snapshot.last_filter_result << ",\n";
+    out << "    \"lastDamageVictimTeam\": " << target_probe_snapshot.last_damage_victim_team << ",\n";
+    out << "    \"lastDamageVictimUnitType\": " << target_probe_snapshot.last_damage_victim_unit_type << ",\n";
+    out << "    \"lastDamageAttackerHandle\": " << target_probe_snapshot.last_damage_attacker_handle << ",\n";
+    out << "    \"lastDamageInflictorHandle\": " << target_probe_snapshot.last_damage_inflictor_handle << ",\n";
+    out << "    \"lastDamageAttackerTeam\": " << target_probe_snapshot.last_damage_attacker_team << ",\n";
+    out << "    \"lastDamageAttackerUnitType\": " << target_probe_snapshot.last_damage_attacker_unit_type << ",\n";
+    out << "    \"filterCalls\": " << target_probe_snapshot.filter_calls << ",\n";
+    out << "    \"filterAllowed\": " << target_probe_snapshot.filter_allowed << ",\n";
+    out << "    \"filterDenied\": " << target_probe_snapshot.filter_denied << ",\n";
+    out << "    \"filterSameTeamCalls\": " << target_probe_snapshot.filter_same_team_calls << ",\n";
+    out << "    \"filterSameTeamAllowed\": " << target_probe_snapshot.filter_same_team_allowed << ",\n";
+    out << "    \"filterSameTeamDenied\": " << target_probe_snapshot.filter_same_team_denied << ",\n";
+    out << "    \"filterObjectiveTargetCalls\": " << target_probe_snapshot.filter_objective_target_calls << ",\n";
+    out << "    \"filterObjectiveTargetAllowed\": " << target_probe_snapshot.filter_objective_target_allowed << ",\n";
+    out << "    \"filterObjectiveTargetDenied\": " << target_probe_snapshot.filter_objective_target_denied << ",\n";
+    out << "    \"filterNeutralTargetCalls\": " << target_probe_snapshot.filter_neutral_target_calls << ",\n";
+    out << "    \"filterMidbossTargetCalls\": " << target_probe_snapshot.filter_midboss_target_calls << ",\n";
+    out << "    \"filterInvalidSourceTeam\": " << target_probe_snapshot.filter_invalid_source_team << ",\n";
+    out << "    \"filterInvalidTargetTeam\": " << target_probe_snapshot.filter_invalid_target_team << ",\n";
+    out << "    \"sourceSpoofAttempts\": " << target_probe_snapshot.source_spoof_attempts << ",\n";
+    out << "    \"sourceSpoofApplied\": " << target_probe_snapshot.source_spoof_applied << ",\n";
+    out << "    \"sourceSpoofRestored\": " << target_probe_snapshot.source_spoof_restored << ",\n";
+    out << "    \"sourceSpoofAllowed\": " << target_probe_snapshot.source_spoof_allowed << ",\n";
+    out << "    \"sourceSpoofDenied\": " << target_probe_snapshot.source_spoof_denied << ",\n";
+    out << "    \"targetSpoofAttempts\": " << target_probe_snapshot.target_spoof_attempts << ",\n";
+    out << "    \"targetSpoofApplied\": " << target_probe_snapshot.target_spoof_applied << ",\n";
+    out << "    \"targetSpoofRestored\": " << target_probe_snapshot.target_spoof_restored << ",\n";
+    out << "    \"targetSpoofAllowed\": " << target_probe_snapshot.target_spoof_allowed << ",\n";
+    out << "    \"targetSpoofDenied\": " << target_probe_snapshot.target_spoof_denied << ",\n";
+    out << "    \"bitsetAllowAttempts\": " << target_probe_snapshot.bitset_allow_attempts << ",\n";
+    out << "    \"bitsetAllowApplied\": " << target_probe_snapshot.bitset_allow_applied << ",\n";
+    out << "    \"bitsetAllowFailures\": " << target_probe_snapshot.bitset_allow_failures << ",\n";
+    out << "    \"classifierCalls\": " << target_probe_snapshot.classifier_calls << ",\n";
+    out << "    \"classifierInvalid\": " << target_probe_snapshot.classifier_invalid << ",\n";
+    out << "    \"classifierSpoofAttempts\": " << target_probe_snapshot.classifier_spoof_attempts << ",\n";
+    out << "    \"classifierSpoofApplied\": " << target_probe_snapshot.classifier_spoof_applied << ",\n";
+    out << "    \"classifierSpoofSkipped\": " << target_probe_snapshot.classifier_spoof_skipped << ",\n";
+    out << "    \"lastClassifierOriginalBit\": " << target_probe_snapshot.last_classifier_original_bit << ",\n";
+    out << "    \"lastClassifierFinalBit\": " << target_probe_snapshot.last_classifier_final_bit << ",\n";
+    out << "    \"globalNeutralizeAttempts\": " << target_probe_snapshot.global_neutralize_attempts << ",\n";
+    out << "    \"globalNeutralizeApplied\": " << target_probe_snapshot.global_neutralize_applied << ",\n";
+    out << "    \"globalNeutralizeAlready\": " << target_probe_snapshot.global_neutralize_already << ",\n";
+    out << "    \"globalNeutralizeNull\": " << target_probe_snapshot.global_neutralize_null << ",\n";
+    out << "    \"globalNeutralizeInvalidTeam\": " << target_probe_snapshot.global_neutralize_invalid_team << ",\n";
+    out << "    \"globalNeutralizeWriteFailures\": " << target_probe_snapshot.global_neutralize_write_failures << ",\n";
+    out << "    \"globalNeutralizeOriginalTeamOverflow\": " << target_probe_snapshot.global_neutralize_original_team_overflow << ",\n";
+    out << "    \"globalNeutralizeOriginalTeamCounts\": [";
+    for (std::size_t index = 0; index < std::size(target_probe_snapshot.global_neutralize_original_team_counts); ++index) {
+        out << (index == 0 ? "" : ", ") << target_probe_snapshot.global_neutralize_original_team_counts[index];
+    }
+    out << "],\n";
+    out << "    \"filterForcedAllowed\": " << target_probe_snapshot.filter_forced_allowed << ",\n";
+    out << "    \"callerForcedAllowed\": " << target_probe_snapshot.caller_forced_allowed << ",\n";
+    out << "    \"secondaryForcedAllowed\": " << target_probe_snapshot.secondary_forced_allowed << ",\n";
+    out << "    \"secondaryCalls\": " << target_probe_snapshot.secondary_calls << ",\n";
+    out << "    \"secondaryAllowed\": " << target_probe_snapshot.secondary_allowed << ",\n";
+    out << "    \"secondaryDenied\": " << target_probe_snapshot.secondary_denied << ",\n";
+    out << "    \"callerCalls\": " << target_probe_snapshot.caller_calls << ",\n";
+    out << "    \"callerAllowed\": " << target_probe_snapshot.caller_allowed << ",\n";
+    out << "    \"callerDenied\": " << target_probe_snapshot.caller_denied << ",\n";
+    out << "    \"callerUnit0x1aBypassCandidates\": " << target_probe_snapshot.caller_unit_0x1a_bypass_candidates << ",\n";
+    out << "    \"filterUnitTypeOverflow\": " << target_probe_snapshot.filter_unit_type_overflow << ",\n";
+    out << "    \"filterUnitTypeCounts\": [";
+    for (std::size_t index = 0; index < std::size(target_probe_snapshot.filter_unit_type_counts); ++index) {
+        out << (index == 0 ? "" : ", ") << target_probe_snapshot.filter_unit_type_counts[index];
+    }
+    out << "],\n";
+    out << "    \"damageVictimCalls\": " << target_probe_snapshot.damage_victim_calls << ",\n";
+    out << "    \"damageVictimObjective\": " << target_probe_snapshot.damage_victim_objective << ",\n";
+    out << "    \"damageVictimNeutral\": " << target_probe_snapshot.damage_victim_neutral << ",\n";
+    out << "    \"damageVictimMidboss\": " << target_probe_snapshot.damage_victim_midboss << ",\n";
+    out << "    \"damageVictimInvalidTeam\": " << target_probe_snapshot.damage_victim_invalid_team << ",\n";
+    out << "    \"damageVictimUnitTypeOverflow\": " << target_probe_snapshot.damage_victim_unit_type_overflow << ",\n";
+    out << "    \"damageVictimUnitTypeCounts\": [";
+    for (std::size_t index = 0; index < std::size(target_probe_snapshot.damage_victim_unit_type_counts); ++index) {
+        out << (index == 0 ? "" : ", ") << target_probe_snapshot.damage_victim_unit_type_counts[index];
+    }
+    out << "],\n";
+    out << "    \"damageAttackerHandleValid\": " << target_probe_snapshot.damage_attacker_handle_valid << ",\n";
+    out << "    \"damageAttackerHandleInvalid\": " << target_probe_snapshot.damage_attacker_handle_invalid << ",\n";
+    out << "    \"damageInflictorHandleValid\": " << target_probe_snapshot.damage_inflictor_handle_valid << ",\n";
+    out << "    \"damageInflictorHandleInvalid\": " << target_probe_snapshot.damage_inflictor_handle_invalid << ",\n";
+    out << "    \"damageAttackerSameTeam\": " << target_probe_snapshot.damage_attacker_same_team << ",\n";
+    out << "    \"damageAttackerOpposingTeam\": " << target_probe_snapshot.damage_attacker_opposing_team << ",\n";
+    out << "    \"damageAttackerOtherTeam\": " << target_probe_snapshot.damage_attacker_other_team << ",\n";
+    out << "    \"damageAttackerSelf\": " << target_probe_snapshot.damage_attacker_self << ",\n";
+    out << "    \"damageAttackerSameTeamObjective\": " << target_probe_snapshot.damage_attacker_same_team_objective << ",\n";
+    out << "    \"damageAttackerUnitTypeOverflow\": " << target_probe_snapshot.damage_attacker_unit_type_overflow << ",\n";
+    out << "    \"damageAttackerUnitTypeCounts\": [";
+    for (std::size_t index = 0; index < std::size(target_probe_snapshot.damage_attacker_unit_type_counts); ++index) {
+        out << (index == 0 ? "" : ", ") << target_probe_snapshot.damage_attacker_unit_type_counts[index];
+    }
+    out << "],\n";
+    out << "    \"damageSameTeamVictimUnitTypeOverflow\": " << target_probe_snapshot.damage_same_team_victim_unit_type_overflow << ",\n";
+    out << "    \"damageSameTeamVictimUnitTypeCounts\": [";
+    for (std::size_t index = 0; index < std::size(target_probe_snapshot.damage_same_team_victim_unit_type_counts); ++index) {
+        out << (index == 0 ? "" : ", ") << target_probe_snapshot.damage_same_team_victim_unit_type_counts[index];
+    }
+    out << "]\n";
+    out << "  },\n";
     out << "  \"error\": \"" << json_escape(error) << "\"\n";
     out << "}\n";
     return out.str();
@@ -529,7 +694,10 @@ std::string build_snapshot_jsonl(
     const char* phase,
     double elapsed_seconds,
     const DwrtHostSnapshot& snapshot,
-    const DwrtProbeCountersNative& probe_snapshot) {
+    const DwrtProbeCountersNative& probe_snapshot,
+    const DwrtWalkerPatrolSnapshot& walker_patrol_snapshot,
+    const DwrtFriendlyFireSnapshot& friendly_fire_snapshot,
+    const DwrtTargetProbeSnapshot& target_probe_snapshot) {
     std::ostringstream out;
     out << "{\"phase\":\"" << json_escape(phase) << "\",";
     out << "\"elapsedSeconds\":" << elapsed_seconds << ",";
@@ -558,6 +726,158 @@ std::string build_snapshot_jsonl(
     out << "\"entityOutputCounted\":" << probe_snapshot.entity_output_counted << ",";
     out << "\"entityTouchSeen\":" << probe_snapshot.entity_touch_seen << ",";
     out << "\"entityTouchCounted\":" << probe_snapshot.entity_touch_counted;
+    out << "},\"walkerPatrol\":{";
+    out << "\"enabled\":" << walker_patrol_snapshot.enabled << ",";
+    out << "\"stride\":" << walker_patrol_snapshot.stride << ",";
+    out << "\"waypointCount\":" << walker_patrol_snapshot.waypoint_count << ",";
+    out << "\"mode\":" << walker_patrol_snapshot.mode << ",";
+    out << "\"damageCallbacks\":" << walker_patrol_snapshot.damage_callbacks << ",";
+    out << "\"candidateWalkers\":" << walker_patrol_snapshot.candidate_walkers << ",";
+    out << "\"nonWalkerVictims\":" << walker_patrol_snapshot.non_walker_victims << ",";
+    out << "\"skippedRecursive\":" << walker_patrol_snapshot.skipped_recursive << ",";
+    out << "\"missingIdentity\":" << walker_patrol_snapshot.missing_identity << ",";
+    out << "\"missingDesignerName\":" << walker_patrol_snapshot.missing_designer_name << ",";
+    out << "\"teleportAttempts\":" << walker_patrol_snapshot.teleport_attempts << ",";
+    out << "\"teleportCalls\":" << walker_patrol_snapshot.teleport_calls << ",";
+    out << "\"bodyComponentMissing\":" << walker_patrol_snapshot.body_component_missing << ",";
+    out << "\"sceneNodeMissing\":" << walker_patrol_snapshot.scene_node_missing << ",";
+    out << "\"originReadAttempts\":" << walker_patrol_snapshot.origin_read_attempts << ",";
+    out << "\"originReadSuccesses\":" << walker_patrol_snapshot.origin_read_successes << ",";
+    out << "\"originReadFailures\":" << walker_patrol_snapshot.origin_read_failures;
+    out << "},\"friendlyFire\":{";
+    out << "\"enabled\":" << friendly_fire_snapshot.enabled << ",";
+    out << "\"mode\":" << friendly_fire_snapshot.mode << ",";
+    out << "\"scope\":" << friendly_fire_snapshot.scope << ",";
+    out << "\"localTeam\":" << friendly_fire_snapshot.local_team << ",";
+    out << "\"damageCallbacks\":" << friendly_fire_snapshot.damage_callbacks << ",";
+    out << "\"skippedRecursive\":" << friendly_fire_snapshot.skipped_recursive << ",";
+    out << "\"missingIdentity\":" << friendly_fire_snapshot.missing_identity << ",";
+    out << "\"missingDesignerName\":" << friendly_fire_snapshot.missing_designer_name << ",";
+    out << "\"nonObjectiveVictims\":" << friendly_fire_snapshot.non_objective_victims << ",";
+    out << "\"objectiveCandidates\":" << friendly_fire_snapshot.objective_candidates << ",";
+    out << "\"invalidTeam\":" << friendly_fire_snapshot.invalid_team << ",";
+    out << "\"teamSpoofAttempts\":" << friendly_fire_snapshot.team_spoof_attempts << ",";
+    out << "\"teamSpoofApplied\":" << friendly_fire_snapshot.team_spoof_applied << ",";
+    out << "\"teamSpoofRestored\":" << friendly_fire_snapshot.team_spoof_restored;
+    out << "},\"targetProbe\":{";
+    out << "\"enabled\":" << target_probe_snapshot.enabled << ",";
+    out << "\"sourceTeamSpoofEnabled\":" << target_probe_snapshot.source_team_spoof_enabled << ",";
+    out << "\"targetTeamSpoofEnabled\":" << target_probe_snapshot.target_team_spoof_enabled << ",";
+    out << "\"targetTeamSpoofTeam\":" << target_probe_snapshot.target_team_spoof_team << ",";
+    out << "\"targetBitsetAllowEnabled\":" << target_probe_snapshot.target_bitset_allow_enabled << ",";
+    out << "\"forceFilterSameTeamAllowEnabled\":" << target_probe_snapshot.force_filter_same_team_allow_enabled << ",";
+    out << "\"forceCallerSameTeamAllowEnabled\":" << target_probe_snapshot.force_caller_same_team_allow_enabled << ",";
+    out << "\"forceFilterObjectiveAllowEnabled\":" << target_probe_snapshot.force_filter_objective_allow_enabled << ",";
+    out << "\"forceCallerObjectiveAllowEnabled\":" << target_probe_snapshot.force_caller_objective_allow_enabled << ",";
+    out << "\"forceSecondaryAllowEnabled\":" << target_probe_snapshot.force_secondary_allow_enabled << ",";
+    out << "\"neutralSimulationEnabled\":" << target_probe_snapshot.neutral_simulation_enabled << ",";
+    out << "\"classifierSpoofEnabled\":" << target_probe_snapshot.classifier_spoof_enabled << ",";
+    out << "\"classifierSpoofBit\":" << target_probe_snapshot.classifier_spoof_bit << ",";
+    out << "\"globalNeutralizeEnabled\":" << target_probe_snapshot.global_neutralize_enabled << ",";
+    out << "\"globalNeutralizeTeam\":" << target_probe_snapshot.global_neutralize_team << ",";
+    out << "\"lastSourceTeam\":" << target_probe_snapshot.last_source_team << ",";
+    out << "\"lastTargetTeam\":" << target_probe_snapshot.last_target_team << ",";
+    out << "\"lastTargetUnitType\":" << target_probe_snapshot.last_target_unit_type << ",";
+    out << "\"lastFilterResult\":" << target_probe_snapshot.last_filter_result << ",";
+    out << "\"lastDamageVictimTeam\":" << target_probe_snapshot.last_damage_victim_team << ",";
+    out << "\"lastDamageVictimUnitType\":" << target_probe_snapshot.last_damage_victim_unit_type << ",";
+    out << "\"lastDamageAttackerHandle\":" << target_probe_snapshot.last_damage_attacker_handle << ",";
+    out << "\"lastDamageInflictorHandle\":" << target_probe_snapshot.last_damage_inflictor_handle << ",";
+    out << "\"lastDamageAttackerTeam\":" << target_probe_snapshot.last_damage_attacker_team << ",";
+    out << "\"lastDamageAttackerUnitType\":" << target_probe_snapshot.last_damage_attacker_unit_type << ",";
+    out << "\"filterCalls\":" << target_probe_snapshot.filter_calls << ",";
+    out << "\"filterAllowed\":" << target_probe_snapshot.filter_allowed << ",";
+    out << "\"filterDenied\":" << target_probe_snapshot.filter_denied << ",";
+    out << "\"filterSameTeamCalls\":" << target_probe_snapshot.filter_same_team_calls << ",";
+    out << "\"filterSameTeamAllowed\":" << target_probe_snapshot.filter_same_team_allowed << ",";
+    out << "\"filterSameTeamDenied\":" << target_probe_snapshot.filter_same_team_denied << ",";
+    out << "\"filterObjectiveTargetCalls\":" << target_probe_snapshot.filter_objective_target_calls << ",";
+    out << "\"filterObjectiveTargetAllowed\":" << target_probe_snapshot.filter_objective_target_allowed << ",";
+    out << "\"filterObjectiveTargetDenied\":" << target_probe_snapshot.filter_objective_target_denied << ",";
+    out << "\"filterNeutralTargetCalls\":" << target_probe_snapshot.filter_neutral_target_calls << ",";
+    out << "\"filterMidbossTargetCalls\":" << target_probe_snapshot.filter_midboss_target_calls << ",";
+    out << "\"filterInvalidSourceTeam\":" << target_probe_snapshot.filter_invalid_source_team << ",";
+    out << "\"filterInvalidTargetTeam\":" << target_probe_snapshot.filter_invalid_target_team << ",";
+    out << "\"sourceSpoofAttempts\":" << target_probe_snapshot.source_spoof_attempts << ",";
+    out << "\"sourceSpoofApplied\":" << target_probe_snapshot.source_spoof_applied << ",";
+    out << "\"sourceSpoofRestored\":" << target_probe_snapshot.source_spoof_restored << ",";
+    out << "\"sourceSpoofAllowed\":" << target_probe_snapshot.source_spoof_allowed << ",";
+    out << "\"sourceSpoofDenied\":" << target_probe_snapshot.source_spoof_denied << ",";
+    out << "\"targetSpoofAttempts\":" << target_probe_snapshot.target_spoof_attempts << ",";
+    out << "\"targetSpoofApplied\":" << target_probe_snapshot.target_spoof_applied << ",";
+    out << "\"targetSpoofRestored\":" << target_probe_snapshot.target_spoof_restored << ",";
+    out << "\"targetSpoofAllowed\":" << target_probe_snapshot.target_spoof_allowed << ",";
+    out << "\"targetSpoofDenied\":" << target_probe_snapshot.target_spoof_denied << ",";
+    out << "\"bitsetAllowAttempts\":" << target_probe_snapshot.bitset_allow_attempts << ",";
+    out << "\"bitsetAllowApplied\":" << target_probe_snapshot.bitset_allow_applied << ",";
+    out << "\"bitsetAllowFailures\":" << target_probe_snapshot.bitset_allow_failures << ",";
+    out << "\"classifierCalls\":" << target_probe_snapshot.classifier_calls << ",";
+    out << "\"classifierInvalid\":" << target_probe_snapshot.classifier_invalid << ",";
+    out << "\"classifierSpoofAttempts\":" << target_probe_snapshot.classifier_spoof_attempts << ",";
+    out << "\"classifierSpoofApplied\":" << target_probe_snapshot.classifier_spoof_applied << ",";
+    out << "\"classifierSpoofSkipped\":" << target_probe_snapshot.classifier_spoof_skipped << ",";
+    out << "\"lastClassifierOriginalBit\":" << target_probe_snapshot.last_classifier_original_bit << ",";
+    out << "\"lastClassifierFinalBit\":" << target_probe_snapshot.last_classifier_final_bit << ",";
+    out << "\"globalNeutralizeAttempts\":" << target_probe_snapshot.global_neutralize_attempts << ",";
+    out << "\"globalNeutralizeApplied\":" << target_probe_snapshot.global_neutralize_applied << ",";
+    out << "\"globalNeutralizeAlready\":" << target_probe_snapshot.global_neutralize_already << ",";
+    out << "\"globalNeutralizeNull\":" << target_probe_snapshot.global_neutralize_null << ",";
+    out << "\"globalNeutralizeInvalidTeam\":" << target_probe_snapshot.global_neutralize_invalid_team << ",";
+    out << "\"globalNeutralizeWriteFailures\":" << target_probe_snapshot.global_neutralize_write_failures << ",";
+    out << "\"globalNeutralizeOriginalTeamOverflow\":" << target_probe_snapshot.global_neutralize_original_team_overflow << ",";
+    out << "\"globalNeutralizeOriginalTeamCounts\":[";
+    for (std::size_t index = 0; index < std::size(target_probe_snapshot.global_neutralize_original_team_counts); ++index) {
+        out << (index == 0 ? "" : ",") << target_probe_snapshot.global_neutralize_original_team_counts[index];
+    }
+    out << "],";
+    out << "\"filterForcedAllowed\":" << target_probe_snapshot.filter_forced_allowed << ",";
+    out << "\"callerForcedAllowed\":" << target_probe_snapshot.caller_forced_allowed << ",";
+    out << "\"secondaryForcedAllowed\":" << target_probe_snapshot.secondary_forced_allowed << ",";
+    out << "\"secondaryCalls\":" << target_probe_snapshot.secondary_calls << ",";
+    out << "\"secondaryAllowed\":" << target_probe_snapshot.secondary_allowed << ",";
+    out << "\"secondaryDenied\":" << target_probe_snapshot.secondary_denied << ",";
+    out << "\"callerCalls\":" << target_probe_snapshot.caller_calls << ",";
+    out << "\"callerAllowed\":" << target_probe_snapshot.caller_allowed << ",";
+    out << "\"callerDenied\":" << target_probe_snapshot.caller_denied << ",";
+    out << "\"callerUnit0x1aBypassCandidates\":" << target_probe_snapshot.caller_unit_0x1a_bypass_candidates << ",";
+    out << "\"filterUnitTypeOverflow\":" << target_probe_snapshot.filter_unit_type_overflow << ",";
+    out << "\"filterUnitTypeCounts\":[";
+    for (std::size_t index = 0; index < std::size(target_probe_snapshot.filter_unit_type_counts); ++index) {
+        out << (index == 0 ? "" : ",") << target_probe_snapshot.filter_unit_type_counts[index];
+    }
+    out << "],";
+    out << "\"damageVictimCalls\":" << target_probe_snapshot.damage_victim_calls << ",";
+    out << "\"damageVictimObjective\":" << target_probe_snapshot.damage_victim_objective << ",";
+    out << "\"damageVictimNeutral\":" << target_probe_snapshot.damage_victim_neutral << ",";
+    out << "\"damageVictimMidboss\":" << target_probe_snapshot.damage_victim_midboss << ",";
+    out << "\"damageVictimInvalidTeam\":" << target_probe_snapshot.damage_victim_invalid_team << ",";
+    out << "\"damageVictimUnitTypeOverflow\":" << target_probe_snapshot.damage_victim_unit_type_overflow << ",";
+    out << "\"damageVictimUnitTypeCounts\":[";
+    for (std::size_t index = 0; index < std::size(target_probe_snapshot.damage_victim_unit_type_counts); ++index) {
+        out << (index == 0 ? "" : ",") << target_probe_snapshot.damage_victim_unit_type_counts[index];
+    }
+    out << "],";
+    out << "\"damageAttackerHandleValid\":" << target_probe_snapshot.damage_attacker_handle_valid << ",";
+    out << "\"damageAttackerHandleInvalid\":" << target_probe_snapshot.damage_attacker_handle_invalid << ",";
+    out << "\"damageInflictorHandleValid\":" << target_probe_snapshot.damage_inflictor_handle_valid << ",";
+    out << "\"damageInflictorHandleInvalid\":" << target_probe_snapshot.damage_inflictor_handle_invalid << ",";
+    out << "\"damageAttackerSameTeam\":" << target_probe_snapshot.damage_attacker_same_team << ",";
+    out << "\"damageAttackerOpposingTeam\":" << target_probe_snapshot.damage_attacker_opposing_team << ",";
+    out << "\"damageAttackerOtherTeam\":" << target_probe_snapshot.damage_attacker_other_team << ",";
+    out << "\"damageAttackerSelf\":" << target_probe_snapshot.damage_attacker_self << ",";
+    out << "\"damageAttackerSameTeamObjective\":" << target_probe_snapshot.damage_attacker_same_team_objective << ",";
+    out << "\"damageAttackerUnitTypeOverflow\":" << target_probe_snapshot.damage_attacker_unit_type_overflow << ",";
+    out << "\"damageAttackerUnitTypeCounts\":[";
+    for (std::size_t index = 0; index < std::size(target_probe_snapshot.damage_attacker_unit_type_counts); ++index) {
+        out << (index == 0 ? "" : ",") << target_probe_snapshot.damage_attacker_unit_type_counts[index];
+    }
+    out << "],";
+    out << "\"damageSameTeamVictimUnitTypeOverflow\":" << target_probe_snapshot.damage_same_team_victim_unit_type_overflow << ",";
+    out << "\"damageSameTeamVictimUnitTypeCounts\":[";
+    for (std::size_t index = 0; index < std::size(target_probe_snapshot.damage_same_team_victim_unit_type_counts); ++index) {
+        out << (index == 0 ? "" : ",") << target_probe_snapshot.damage_same_team_victim_unit_type_counts[index];
+    }
+    out << "]";
     out << "}}\n";
     return out.str();
 }
@@ -614,8 +934,14 @@ int wmain(int argc, wchar_t** argv) {
     DWORD probe_mount_status = 0;
     DWORD probe_reset_status = 0;
     DWORD probe_snapshot_status = 0;
+    DWORD walker_patrol_snapshot_status = 0;
+    DWORD friendly_fire_snapshot_status = 0;
+    DWORD target_probe_snapshot_status = 0;
     DwrtHostSnapshot host_snapshot{};
     DwrtProbeCountersNative probe_snapshot{};
+    DwrtWalkerPatrolSnapshot walker_patrol_snapshot{};
+    DwrtFriendlyFireSnapshot friendly_fire_snapshot{};
+    DwrtTargetProbeSnapshot target_probe_snapshot{};
     std::uintptr_t server_base = 0;
     std::uintptr_t host_base = 0;
     int exit_code = 0;
@@ -634,8 +960,14 @@ int wmain(int argc, wchar_t** argv) {
             probe_mount_status,
             probe_reset_status,
             probe_snapshot_status,
+            walker_patrol_snapshot_status,
+            friendly_fire_snapshot_status,
+            target_probe_snapshot_status,
             host_snapshot,
             probe_snapshot,
+            walker_patrol_snapshot,
+            friendly_fire_snapshot,
+            target_probe_snapshot,
             finish_reason,
             finish_error);
         if (!write_text_file(options.injector_summary_path, summary, write_error)) {
@@ -799,6 +1131,33 @@ int wmain(int argc, wchar_t** argv) {
     if (!remote_probe_snapshot.has_value()) {
         return finish(18, error);
     }
+    std::optional<RemoteAllocation> remote_walker_patrol_snapshot = remote_alloc_write(
+        process_info.hProcess,
+        &walker_patrol_snapshot,
+        sizeof(walker_patrol_snapshot),
+        PAGE_READWRITE,
+        error);
+    if (!remote_walker_patrol_snapshot.has_value()) {
+        return finish(19, error);
+    }
+    std::optional<RemoteAllocation> remote_friendly_fire_snapshot = remote_alloc_write(
+        process_info.hProcess,
+        &friendly_fire_snapshot,
+        sizeof(friendly_fire_snapshot),
+        PAGE_READWRITE,
+        error);
+    if (!remote_friendly_fire_snapshot.has_value()) {
+        return finish(19, error);
+    }
+    std::optional<RemoteAllocation> remote_target_probe_snapshot = remote_alloc_write(
+        process_info.hProcess,
+        &target_probe_snapshot,
+        sizeof(target_probe_snapshot),
+        PAGE_READWRITE,
+        error);
+    if (!remote_target_probe_snapshot.has_value()) {
+        return finish(19, error);
+    }
 
     const std::uintptr_t snapshot_addr = remote_export_address(
         process_info.dwProcessId,
@@ -835,6 +1194,33 @@ int wmain(int argc, wchar_t** argv) {
         error);
     if (probe_snapshot_addr == 0) {
         return finish(22, error);
+    }
+    const std::uintptr_t walker_patrol_snapshot_addr = remote_export_address(
+        process_info.dwProcessId,
+        L"dwrt_host.dll",
+        options.host_dll,
+        "dwrt_host_walker_patrol_snapshot",
+        error);
+    if (walker_patrol_snapshot_addr == 0) {
+        return finish(23, error);
+    }
+    const std::uintptr_t friendly_fire_snapshot_addr = remote_export_address(
+        process_info.dwProcessId,
+        L"dwrt_host.dll",
+        options.host_dll,
+        "dwrt_host_friendly_fire_snapshot",
+        error);
+    if (friendly_fire_snapshot_addr == 0) {
+        return finish(23, error);
+    }
+    const std::uintptr_t target_probe_snapshot_addr = remote_export_address(
+        process_info.dwProcessId,
+        L"dwrt_host.dll",
+        options.host_dll,
+        "dwrt_host_target_probe_snapshot",
+        error);
+    if (target_probe_snapshot_addr == 0) {
+        return finish(23, error);
     }
 
     auto refresh_host_snapshot = [&](std::string& snapshot_error) -> bool {
@@ -895,6 +1281,93 @@ int wmain(int argc, wchar_t** argv) {
         return true;
     };
 
+    auto refresh_walker_patrol_snapshot = [&](std::string& snapshot_error) -> bool {
+        if (!run_remote_thread(
+                process_info.hProcess,
+                walker_patrol_snapshot_addr,
+                remote_walker_patrol_snapshot->address,
+                30'000,
+                walker_patrol_snapshot_status,
+                snapshot_error)) {
+            return false;
+        }
+        if (walker_patrol_snapshot_status != DWRT_HOST_OK) {
+            std::ostringstream out;
+            out << "dwrt_host_walker_patrol_snapshot returned " << walker_patrol_snapshot_status;
+            snapshot_error = out.str();
+            return false;
+        }
+        SIZE_T bytes_read = 0;
+        if (!ReadProcessMemory(
+                process_info.hProcess,
+                remote_walker_patrol_snapshot->address,
+                &walker_patrol_snapshot,
+                sizeof(walker_patrol_snapshot),
+                &bytes_read) || bytes_read != sizeof(walker_patrol_snapshot)) {
+            snapshot_error = windows_error_message("ReadProcessMemory for walker patrol snapshot failed");
+            return false;
+        }
+        return true;
+    };
+
+    auto refresh_friendly_fire_snapshot = [&](std::string& snapshot_error) -> bool {
+        if (!run_remote_thread(
+                process_info.hProcess,
+                friendly_fire_snapshot_addr,
+                remote_friendly_fire_snapshot->address,
+                30'000,
+                friendly_fire_snapshot_status,
+                snapshot_error)) {
+            return false;
+        }
+        if (friendly_fire_snapshot_status != DWRT_HOST_OK) {
+            std::ostringstream out;
+            out << "dwrt_host_friendly_fire_snapshot returned " << friendly_fire_snapshot_status;
+            snapshot_error = out.str();
+            return false;
+        }
+        SIZE_T bytes_read = 0;
+        if (!ReadProcessMemory(
+                process_info.hProcess,
+                remote_friendly_fire_snapshot->address,
+                &friendly_fire_snapshot,
+                sizeof(friendly_fire_snapshot),
+                &bytes_read) || bytes_read != sizeof(friendly_fire_snapshot)) {
+            snapshot_error = windows_error_message("ReadProcessMemory for friendly fire snapshot failed");
+            return false;
+        }
+        return true;
+    };
+
+    auto refresh_target_probe_snapshot = [&](std::string& snapshot_error) -> bool {
+        if (!run_remote_thread(
+                process_info.hProcess,
+                target_probe_snapshot_addr,
+                remote_target_probe_snapshot->address,
+                30'000,
+                target_probe_snapshot_status,
+                snapshot_error)) {
+            return false;
+        }
+        if (target_probe_snapshot_status != DWRT_HOST_OK) {
+            std::ostringstream out;
+            out << "dwrt_host_target_probe_snapshot returned " << target_probe_snapshot_status;
+            snapshot_error = out.str();
+            return false;
+        }
+        SIZE_T bytes_read = 0;
+        if (!ReadProcessMemory(
+                process_info.hProcess,
+                remote_target_probe_snapshot->address,
+                &target_probe_snapshot,
+                sizeof(target_probe_snapshot),
+                &bytes_read) || bytes_read != sizeof(target_probe_snapshot)) {
+            snapshot_error = windows_error_message("ReadProcessMemory for target probe snapshot failed");
+            return false;
+        }
+        return true;
+    };
+
     if (!refresh_host_snapshot(error)) {
         return finish(23, error);
     }
@@ -905,8 +1378,8 @@ int wmain(int argc, wchar_t** argv) {
         host_snapshot.used_live_server_module == 0 ||
         host_snapshot.used_mapped_file_fallback != 0 ||
         (options.install_probe_hooks &&
-            (host_snapshot.hook_install_attempts != 3 ||
-             host_snapshot.hooks_installed != 3 ||
+            (host_snapshot.hook_install_attempts != 7 ||
+             host_snapshot.hooks_installed != 7 ||
              host_snapshot.hook_install_failures != 0)) ||
         (!options.install_probe_hooks &&
             (host_snapshot.hook_install_attempts != 0 || host_snapshot.hooks_installed != 0)) ||
@@ -944,7 +1417,7 @@ int wmain(int argc, wchar_t** argv) {
         out << "dwrt_host_reset_probe_counters returned " << probe_reset_status;
         return finish(28, out.str());
     }
-    if (!refresh_probe_snapshot(error)) {
+    if (!refresh_probe_snapshot(error) || !refresh_walker_patrol_snapshot(error) || !refresh_friendly_fire_snapshot(error) || !refresh_target_probe_snapshot(error)) {
         return finish(29, error);
     }
 
@@ -959,7 +1432,7 @@ int wmain(int argc, wchar_t** argv) {
         std::string write_error;
         if (!append_text_file(
                 options.snapshot_jsonl_path,
-                build_snapshot_jsonl(phase, elapsed_seconds(), host_snapshot, probe_snapshot),
+                build_snapshot_jsonl(phase, elapsed_seconds(), host_snapshot, probe_snapshot, walker_patrol_snapshot, friendly_fire_snapshot, target_probe_snapshot),
                 write_error)) {
             error = write_error;
             return false;
@@ -972,8 +1445,9 @@ int wmain(int argc, wchar_t** argv) {
     }
 
     if (options.hold_seconds != 0) {
-        std::cout << "[dwrt-live-server-smoke] session ready on hostport 27068; holdSeconds="
-                  << options.hold_seconds << ", probeMountMask=" << options.probe_mount_mask << '\n';
+        std::cout << "[dwrt-live-server-smoke] session ready; serverArgs=\""
+                  << narrow(options.server_args) << "\"; holdSeconds=" << options.hold_seconds
+                  << ", probeMountMask=" << options.probe_mount_mask << '\n';
     }
 
     const DWORD hold_ms = options.hold_seconds * 1000U;
@@ -992,7 +1466,7 @@ int wmain(int argc, wchar_t** argv) {
         }
         const DWORD elapsed_ms = GetTickCount() - session_start_tick;
         if (poll_ms != 0 && elapsed_ms >= next_poll_ms) {
-            if (!refresh_host_snapshot(error) || !refresh_probe_snapshot(error)) {
+            if (!refresh_host_snapshot(error) || !refresh_probe_snapshot(error) || !refresh_walker_patrol_snapshot(error) || !refresh_friendly_fire_snapshot(error) || !refresh_target_probe_snapshot(error)) {
                 return finish(32, error);
             }
             if (!append_snapshot("poll")) {
@@ -1006,7 +1480,7 @@ int wmain(int argc, wchar_t** argv) {
         completion_reason = "duration-elapsed";
     }
 
-    if (!refresh_host_snapshot(error) || !refresh_probe_snapshot(error)) {
+    if (!refresh_host_snapshot(error) || !refresh_probe_snapshot(error) || !refresh_walker_patrol_snapshot(error) || !refresh_friendly_fire_snapshot(error) || !refresh_target_probe_snapshot(error)) {
         return finish(34, error);
     }
     if (!append_snapshot("final")) {

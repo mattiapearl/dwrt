@@ -78,6 +78,9 @@ $hostDllSources = @(
     (Join-Path $hostDir "dwrt_probe_manifest.cpp"),
     (Join-Path $hostDir "dwrt_hook_backend.cpp"),
     (Join-Path $hostDir "dwrt_host_testpoints.cpp"),
+    (Join-Path $hostDir "dwrt_walker_patrol.cpp"),
+    (Join-Path $hostDir "dwrt_friendly_fire.cpp"),
+    (Join-Path $hostDir "dwrt_target_probe.cpp"),
     (Join-Path $hostDir "dwrt_host.cpp")
 )
 $hostDllSourceArgs = ($hostDllSources | ForEach-Object { '"{0}"' -f $_ }) -join " "

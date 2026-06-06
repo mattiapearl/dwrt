@@ -8,6 +8,7 @@
 
 mod access;
 mod catalog;
+pub mod ffa;
 mod surface;
 
 pub use access::{Access, Authority, DiscoveryKind, HotPathPolicy};

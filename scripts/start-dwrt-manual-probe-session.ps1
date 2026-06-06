@@ -37,6 +37,35 @@ param(
 
     [switch]$StrictNoRecursiveCallbacks,
 
+    [switch]$WalkerPatrolExperiment,
+
+    [ValidateSet("Velocity", "OriginNudge")]
+    [string]$WalkerPatrolMode = "Velocity",
+
+    [int]$WalkerPatrolStride = 16,
+
+    [string]$WalkerPatrolVelocities = "900,0,0;0,900,0;-900,0,0;0,-900,0",
+
+    [switch]$FriendlyFireExperiment,
+
+    [ValidateSet(0, 2, 3)]
+    [int]$FriendlyFireLocalTeam = 2,
+
+    [switch]$TargetSourceTeamSpoofExperiment,
+
+    [switch]$TargetTeamSpoofExperiment,
+
+    [ValidateSet("Opposing", "Neutral")]
+    [string]$TargetTeamSpoofMode = "Opposing",
+
+    [switch]$TargetForceSameTeamAllowExperiment,
+
+    [switch]$TargetForceObjectiveAllowExperiment,
+
+    [switch]$TargetNeutralSimulationExperiment,
+
+    [switch]$TargetBitsetAllowExperiment,
+
     [switch]$KillExisting
 )
 
@@ -51,6 +80,10 @@ if ([string]::IsNullOrWhiteSpace($OutputDir)) {
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $OutputDir = Join-Path $repo "research\benchmarks\runs\$stamp-dwrt-manual-probe-session"
 }
+elseif (-not [System.IO.Path]::IsPathRooted($OutputDir)) {
+    $OutputDir = Join-Path $repo $OutputDir
+}
+$OutputDir = [System.IO.Path]::GetFullPath($OutputDir)
 New-Item -ItemType Directory -Force $OutputDir | Out-Null
 
 if ([string]::IsNullOrWhiteSpace($ServerArgs)) {
@@ -94,6 +127,25 @@ $runnerLines.Add('  XperfPreset = "' + $XperfPreset + '"') | Out-Null
 $runnerLines.Add('}') | Out-Null
 $runnerLines.Add('$params["InstallProbeHooks"] = $true') | Out-Null
 if (-not $StrictNoRecursiveCallbacks) { $runnerLines.Add('$params["AllowRecursiveCallbacks"] = $true') | Out-Null }
+if ($WalkerPatrolExperiment) {
+    $runnerLines.Add('$params["WalkerPatrolExperiment"] = $true') | Out-Null
+    $runnerLines.Add('$params["WalkerPatrolMode"] = "' + $WalkerPatrolMode + '"') | Out-Null
+    $runnerLines.Add('$params["WalkerPatrolStride"] = ' + $WalkerPatrolStride) | Out-Null
+    $runnerLines.Add('$params["WalkerPatrolVelocities"] = "' + ($WalkerPatrolVelocities -replace '"', '`"') + '"') | Out-Null
+}
+if ($FriendlyFireExperiment) {
+    $runnerLines.Add('$params["FriendlyFireExperiment"] = $true') | Out-Null
+    $runnerLines.Add('$params["FriendlyFireLocalTeam"] = ' + $FriendlyFireLocalTeam) | Out-Null
+}
+if ($TargetSourceTeamSpoofExperiment) { $runnerLines.Add('$params["TargetSourceTeamSpoofExperiment"] = $true') | Out-Null }
+if ($TargetTeamSpoofExperiment) {
+    $runnerLines.Add('$params["TargetTeamSpoofExperiment"] = $true') | Out-Null
+    $runnerLines.Add('$params["TargetTeamSpoofMode"] = "' + $TargetTeamSpoofMode + '"') | Out-Null
+}
+if ($TargetForceSameTeamAllowExperiment) { $runnerLines.Add('$params["TargetForceSameTeamAllowExperiment"] = $true') | Out-Null }
+if ($TargetForceObjectiveAllowExperiment) { $runnerLines.Add('$params["TargetForceObjectiveAllowExperiment"] = $true') | Out-Null }
+if ($TargetNeutralSimulationExperiment) { $runnerLines.Add('$params["TargetNeutralSimulationExperiment"] = $true') | Out-Null }
+if ($TargetBitsetAllowExperiment) { $runnerLines.Add('$params["TargetBitsetAllowExperiment"] = $true') | Out-Null }
 if ($NoProfile) { $runnerLines.Add('$params["NoProfile"] = $true') | Out-Null }
 if ($RequireProfiler) { $runnerLines.Add('$params["RequireProfiler"] = $true') | Out-Null }
 if ($KillExisting) { $runnerLines.Add('$params["KillExisting"] = $true') | Out-Null }
@@ -112,6 +164,19 @@ $sessionInfo = [ordered]@{
     pollSeconds = $PollSeconds
     probeMountMask = $ProbeMountMask
     allowRecursiveCallbacks = -not [bool]$StrictNoRecursiveCallbacks
+    walkerPatrolExperiment = [bool]$WalkerPatrolExperiment
+    walkerPatrolMode = $WalkerPatrolMode
+    walkerPatrolStride = $WalkerPatrolStride
+    walkerPatrolVelocities = $WalkerPatrolVelocities
+    friendlyFireExperiment = [bool]$FriendlyFireExperiment
+    friendlyFireLocalTeam = $FriendlyFireLocalTeam
+    targetSourceTeamSpoofExperiment = [bool]$TargetSourceTeamSpoofExperiment
+    targetTeamSpoofExperiment = [bool]$TargetTeamSpoofExperiment
+    targetTeamSpoofMode = $TargetTeamSpoofMode
+    targetForceSameTeamAllowExperiment = [bool]$TargetForceSameTeamAllowExperiment
+    targetForceObjectiveAllowExperiment = [bool]$TargetForceObjectiveAllowExperiment
+    targetNeutralSimulationExperiment = [bool]$TargetNeutralSimulationExperiment
+    targetBitsetAllowExperiment = [bool]$TargetBitsetAllowExperiment
     noProfile = [bool]$NoProfile
     profiler = $(if ($NoProfile) { "None" } else { $Profiler })
     xperfPreset = $XperfPreset

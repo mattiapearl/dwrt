@@ -3,6 +3,9 @@
 #include <cstdint>
 
 #include "dwrt_runtime.h"
+#include "dwrt_friendly_fire.hpp"
+#include "dwrt_target_probe.hpp"
+#include "dwrt_walker_patrol.hpp"
 
 #ifdef _WIN32
 #ifdef DWRT_HOST_BUILD
@@ -73,4 +76,7 @@ DWRT_HOST_API std::uint32_t dwrt_host_snapshot(DwrtHostSnapshot* out);
 DWRT_HOST_API std::uint32_t dwrt_host_set_probe_mount_mask(std::uint32_t mount_mask);
 DWRT_HOST_API std::uint32_t dwrt_host_reset_probe_counters();
 DWRT_HOST_API std::uint32_t dwrt_host_probe_snapshot(DwrtProbeCountersNative* out);
+DWRT_HOST_API std::uint32_t dwrt_host_walker_patrol_snapshot(DwrtWalkerPatrolSnapshot* out);
+DWRT_HOST_API std::uint32_t dwrt_host_friendly_fire_snapshot(DwrtFriendlyFireSnapshot* out);
+DWRT_HOST_API std::uint32_t dwrt_host_target_probe_snapshot(DwrtTargetProbeSnapshot* out);
 DWRT_HOST_API std::uint32_t dwrt_host_shutdown();

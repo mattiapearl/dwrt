@@ -17,6 +17,11 @@ This is not a full Deadlock server clone. It documents the real dedicated server
 - [Map/NPC/Pulse/FFA RE pass](map-npc-ffa-re-20260530.md)
 - [DWRT-native probe plan](dwrt-native-probe-plan.md)
 - [Runtime testpoints and validation gates](runtime-testpoints.md)
+- [Walker patrol write experiment](walker-patrol-write-experiment.md)
+- [Friendly fire and practice bots](friendly-fire-and-bots.md)
+- [Team, target, and damage layers](team-target-damage-layers.md)
+- [FFA validation tests](ffa-validation-tests.md)
+- [FFA in-game test matrix](ffa-ingame-test-matrix.md)
 - [ProcessUsercmds model](process-usercmds.md)
 - [Engine/modding patterns to compare](patterns.md)
 

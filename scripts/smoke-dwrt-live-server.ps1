@@ -39,6 +39,35 @@ param(
 
     [switch]$AllowRecursiveCallbacks,
 
+    [switch]$WalkerPatrolExperiment,
+
+    [ValidateSet("Velocity", "OriginNudge")]
+    [string]$WalkerPatrolMode = "Velocity",
+
+    [int]$WalkerPatrolStride = 16,
+
+    [string]$WalkerPatrolVelocities = "900,0,0;0,900,0;-900,0,0;0,-900,0",
+
+    [switch]$FriendlyFireExperiment,
+
+    [ValidateSet(0, 2, 3)]
+    [int]$FriendlyFireLocalTeam = 2,
+
+    [switch]$TargetSourceTeamSpoofExperiment,
+
+    [switch]$TargetTeamSpoofExperiment,
+
+    [ValidateSet("Opposing", "Neutral")]
+    [string]$TargetTeamSpoofMode = "Opposing",
+
+    [switch]$TargetForceSameTeamAllowExperiment,
+
+    [switch]$TargetForceObjectiveAllowExperiment,
+
+    [switch]$TargetNeutralSimulationExperiment,
+
+    [switch]$TargetBitsetAllowExperiment,
+
     [switch]$KillExisting
 )
 
@@ -65,6 +94,10 @@ if ([string]::IsNullOrWhiteSpace($OutputDir)) {
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $OutputDir = Join-Path $repo "research\benchmarks\runs\$stamp-dwrt-live-server"
 }
+elseif (-not [System.IO.Path]::IsPathRooted($OutputDir)) {
+    $OutputDir = Join-Path $repo $OutputDir
+}
+$OutputDir = [System.IO.Path]::GetFullPath($OutputDir)
 $profileDir = Join-Path $OutputDir "profile"
 $hostSummaryPath = Join-Path $OutputDir "dwrt-live-host.json"
 $injectorSummaryPath = Join-Path $OutputDir "dwrt-live-injector.json"
@@ -109,6 +142,9 @@ $hostDllSources = @(
     (Join-Path $hostDir "dwrt_probe_manifest.cpp"),
     (Join-Path $hostDir "dwrt_hook_backend.cpp"),
     (Join-Path $hostDir "dwrt_host_testpoints.cpp"),
+    (Join-Path $hostDir "dwrt_walker_patrol.cpp"),
+    (Join-Path $hostDir "dwrt_friendly_fire.cpp"),
+    (Join-Path $hostDir "dwrt_target_probe.cpp"),
     (Join-Path $hostDir "dwrt_host.cpp")
 )
 $hostDllSourceArgs = ($hostDllSources | ForEach-Object { '"{0}"' -f $_ }) -join " "
@@ -143,27 +179,144 @@ if (![string]::IsNullOrWhiteSpace($StopFile)) { $runArgs += @("--stop-file", $St
 if ($InstallProbeHooks) { $runArgs += "--install-probe-hooks" }
 if ($AllowRecursiveCallbacks) { $runArgs += "--allow-recursive-callbacks" }
 
-if ($NoProfile) {
-    Write-Warning "Running live-server smoke without profiler because -NoProfile was specified."
-    & $injectorExe @runArgs
-    if ($LASTEXITCODE -ne 0) { throw "live-server smoke failed with exit code $LASTEXITCODE" }
-}
-else {
-    $argumentLine = ($runArgs | ForEach-Object {
-        if ($_ -match '[\s"]') { '"{0}"' -f ($_ -replace '"', '\"') } else { $_ }
-    }) -join " "
-    $profileParams = @{
-        FilePath = $injectorExe
-        ArgumentLine = $argumentLine
-        Name = "dwrt-live-server"
-        OutputDir = $profileDir
-        Profiler = $Profiler
-        XperfPreset = $XperfPreset
-        TimeoutSeconds = $TimeoutSeconds
+$oldWalkerExperiment = $env:DWRT_WALKER_PATROL_EXPERIMENT
+$oldWalkerStride = $env:DWRT_WALKER_PATROL_STRIDE
+$oldWalkerMode = $env:DWRT_WALKER_PATROL_MODE
+$oldWalkerOriginNudge = $env:DWRT_WALKER_PATROL_ORIGIN_NUDGE
+$oldWalkerVelocities = $env:DWRT_WALKER_PATROL_VELOCITIES
+$oldFriendlyFireExperiment = $env:DWRT_FRIENDLY_FIRE_EXPERIMENT
+$oldFriendlyFireObjectiveSpoof = $env:DWRT_FRIENDLY_FIRE_OBJECTIVE_TEAM_SPOOF
+$oldFriendlyFireLocalTeam = $env:DWRT_FRIENDLY_FIRE_LOCAL_TEAM
+$oldTargetSourceTeamSpoof = $env:DWRT_TARGET_PROBE_SOURCE_TEAM_SPOOF
+$oldTargetTeamSpoof = $env:DWRT_TARGET_PROBE_TARGET_TEAM_SPOOF
+$oldTargetTeamSpoofTeam = $env:DWRT_TARGET_PROBE_TARGET_TEAM_SPOOF_TEAM
+$oldTargetBitsetAllow = $env:DWRT_TARGET_PROBE_ALLOW_TARGET_BITSET
+$oldTargetForceFilterSameTeamAllow = $env:DWRT_TARGET_PROBE_FORCE_FILTER_SAME_TEAM_ALLOW
+$oldTargetForceCallerSameTeamAllow = $env:DWRT_TARGET_PROBE_FORCE_CALLER_SAME_TEAM_ALLOW
+$oldTargetForceFilterObjectiveAllow = $env:DWRT_TARGET_PROBE_FORCE_FILTER_OBJECTIVE_ALLOW
+$oldTargetForceCallerObjectiveAllow = $env:DWRT_TARGET_PROBE_FORCE_CALLER_OBJECTIVE_ALLOW
+$oldTargetForceSecondaryAllow = $env:DWRT_TARGET_PROBE_FORCE_SECONDARY_ALLOW
+$oldTargetNeutralSimulation = $env:DWRT_TARGET_PROBE_NEUTRAL_SIMULATION
+try {
+    if ($WalkerPatrolExperiment) {
+        $env:DWRT_WALKER_PATROL_EXPERIMENT = "1"
+        $env:DWRT_WALKER_PATROL_STRIDE = [Math]::Max(1, $WalkerPatrolStride).ToString()
+        $env:DWRT_WALKER_PATROL_MODE = if ($WalkerPatrolMode -eq "OriginNudge") { "origin-nudge" } else { "velocity" }
+        if ($WalkerPatrolMode -eq "OriginNudge") { $env:DWRT_WALKER_PATROL_ORIGIN_NUDGE = "1" } else { Remove-Item Env:DWRT_WALKER_PATROL_ORIGIN_NUDGE -ErrorAction SilentlyContinue }
+        $env:DWRT_WALKER_PATROL_VELOCITIES = $WalkerPatrolVelocities
     }
-    if ($RequireProfiler) { $profileParams.RequireProfiler = $true }
-    & (Join-Path $repo "scripts\profile-dwrt-command.ps1") @profileParams
-    if ($LASTEXITCODE -ne 0) { throw "profiled live-server smoke failed with exit code $LASTEXITCODE" }
+    else {
+        Remove-Item Env:DWRT_WALKER_PATROL_EXPERIMENT -ErrorAction SilentlyContinue
+        Remove-Item Env:DWRT_WALKER_PATROL_STRIDE -ErrorAction SilentlyContinue
+        Remove-Item Env:DWRT_WALKER_PATROL_MODE -ErrorAction SilentlyContinue
+        Remove-Item Env:DWRT_WALKER_PATROL_ORIGIN_NUDGE -ErrorAction SilentlyContinue
+        Remove-Item Env:DWRT_WALKER_PATROL_VELOCITIES -ErrorAction SilentlyContinue
+    }
+
+    if ($FriendlyFireExperiment) {
+        $env:DWRT_FRIENDLY_FIRE_EXPERIMENT = "1"
+        $env:DWRT_FRIENDLY_FIRE_OBJECTIVE_TEAM_SPOOF = "1"
+        $env:DWRT_FRIENDLY_FIRE_LOCAL_TEAM = $FriendlyFireLocalTeam.ToString()
+    }
+    else {
+        Remove-Item Env:DWRT_FRIENDLY_FIRE_EXPERIMENT -ErrorAction SilentlyContinue
+        Remove-Item Env:DWRT_FRIENDLY_FIRE_OBJECTIVE_TEAM_SPOOF -ErrorAction SilentlyContinue
+        Remove-Item Env:DWRT_FRIENDLY_FIRE_LOCAL_TEAM -ErrorAction SilentlyContinue
+    }
+
+    if ($TargetSourceTeamSpoofExperiment) {
+        $env:DWRT_TARGET_PROBE_SOURCE_TEAM_SPOOF = "1"
+    }
+    else {
+        Remove-Item Env:DWRT_TARGET_PROBE_SOURCE_TEAM_SPOOF -ErrorAction SilentlyContinue
+    }
+
+    if ($TargetTeamSpoofExperiment) {
+        $env:DWRT_TARGET_PROBE_TARGET_TEAM_SPOOF = "1"
+        $env:DWRT_TARGET_PROBE_TARGET_TEAM_SPOOF_TEAM = if ($TargetTeamSpoofMode -eq "Neutral") { "0" } else { "opposing" }
+    }
+    else {
+        Remove-Item Env:DWRT_TARGET_PROBE_TARGET_TEAM_SPOOF -ErrorAction SilentlyContinue
+        Remove-Item Env:DWRT_TARGET_PROBE_TARGET_TEAM_SPOOF_TEAM -ErrorAction SilentlyContinue
+    }
+
+    if ($TargetBitsetAllowExperiment) {
+        $env:DWRT_TARGET_PROBE_ALLOW_TARGET_BITSET = "1"
+    }
+    else {
+        Remove-Item Env:DWRT_TARGET_PROBE_ALLOW_TARGET_BITSET -ErrorAction SilentlyContinue
+    }
+
+    if ($TargetForceSameTeamAllowExperiment) {
+        $env:DWRT_TARGET_PROBE_FORCE_FILTER_SAME_TEAM_ALLOW = "1"
+        $env:DWRT_TARGET_PROBE_FORCE_CALLER_SAME_TEAM_ALLOW = "1"
+    }
+    else {
+        Remove-Item Env:DWRT_TARGET_PROBE_FORCE_FILTER_SAME_TEAM_ALLOW -ErrorAction SilentlyContinue
+        Remove-Item Env:DWRT_TARGET_PROBE_FORCE_CALLER_SAME_TEAM_ALLOW -ErrorAction SilentlyContinue
+    }
+
+    if ($TargetForceObjectiveAllowExperiment) {
+        $env:DWRT_TARGET_PROBE_FORCE_FILTER_OBJECTIVE_ALLOW = "1"
+        $env:DWRT_TARGET_PROBE_FORCE_CALLER_OBJECTIVE_ALLOW = "1"
+    }
+    else {
+        Remove-Item Env:DWRT_TARGET_PROBE_FORCE_FILTER_OBJECTIVE_ALLOW -ErrorAction SilentlyContinue
+        Remove-Item Env:DWRT_TARGET_PROBE_FORCE_CALLER_OBJECTIVE_ALLOW -ErrorAction SilentlyContinue
+    }
+
+    if ($TargetNeutralSimulationExperiment) {
+        $env:DWRT_TARGET_PROBE_NEUTRAL_SIMULATION = "1"
+        $env:DWRT_TARGET_PROBE_ALLOW_TARGET_BITSET = "1"
+        $env:DWRT_TARGET_PROBE_FORCE_SECONDARY_ALLOW = "1"
+    }
+    else {
+        Remove-Item Env:DWRT_TARGET_PROBE_NEUTRAL_SIMULATION -ErrorAction SilentlyContinue
+        Remove-Item Env:DWRT_TARGET_PROBE_FORCE_SECONDARY_ALLOW -ErrorAction SilentlyContinue
+    }
+
+    if ($NoProfile) {
+        Write-Warning "Running live-server smoke without profiler because -NoProfile was specified."
+        & $injectorExe @runArgs
+        if ($LASTEXITCODE -ne 0) { throw "live-server smoke failed with exit code $LASTEXITCODE" }
+    }
+    else {
+        $argumentLine = ($runArgs | ForEach-Object {
+            if ($_ -match '[\s"]') { '"{0}"' -f ($_ -replace '"', '\"') } else { $_ }
+        }) -join " "
+        $profileParams = @{
+            FilePath = $injectorExe
+            ArgumentLine = $argumentLine
+            Name = "dwrt-live-server"
+            OutputDir = $profileDir
+            Profiler = $Profiler
+            XperfPreset = $XperfPreset
+            TimeoutSeconds = $TimeoutSeconds
+        }
+        if ($RequireProfiler) { $profileParams.RequireProfiler = $true }
+        & (Join-Path $repo "scripts\profile-dwrt-command.ps1") @profileParams
+        if ($LASTEXITCODE -ne 0) { throw "profiled live-server smoke failed with exit code $LASTEXITCODE" }
+    }
+}
+finally {
+    if ($null -eq $oldWalkerExperiment) { Remove-Item Env:DWRT_WALKER_PATROL_EXPERIMENT -ErrorAction SilentlyContinue } else { $env:DWRT_WALKER_PATROL_EXPERIMENT = $oldWalkerExperiment }
+    if ($null -eq $oldWalkerStride) { Remove-Item Env:DWRT_WALKER_PATROL_STRIDE -ErrorAction SilentlyContinue } else { $env:DWRT_WALKER_PATROL_STRIDE = $oldWalkerStride }
+    if ($null -eq $oldWalkerMode) { Remove-Item Env:DWRT_WALKER_PATROL_MODE -ErrorAction SilentlyContinue } else { $env:DWRT_WALKER_PATROL_MODE = $oldWalkerMode }
+    if ($null -eq $oldWalkerOriginNudge) { Remove-Item Env:DWRT_WALKER_PATROL_ORIGIN_NUDGE -ErrorAction SilentlyContinue } else { $env:DWRT_WALKER_PATROL_ORIGIN_NUDGE = $oldWalkerOriginNudge }
+    if ($null -eq $oldWalkerVelocities) { Remove-Item Env:DWRT_WALKER_PATROL_VELOCITIES -ErrorAction SilentlyContinue } else { $env:DWRT_WALKER_PATROL_VELOCITIES = $oldWalkerVelocities }
+    if ($null -eq $oldFriendlyFireExperiment) { Remove-Item Env:DWRT_FRIENDLY_FIRE_EXPERIMENT -ErrorAction SilentlyContinue } else { $env:DWRT_FRIENDLY_FIRE_EXPERIMENT = $oldFriendlyFireExperiment }
+    if ($null -eq $oldFriendlyFireObjectiveSpoof) { Remove-Item Env:DWRT_FRIENDLY_FIRE_OBJECTIVE_TEAM_SPOOF -ErrorAction SilentlyContinue } else { $env:DWRT_FRIENDLY_FIRE_OBJECTIVE_TEAM_SPOOF = $oldFriendlyFireObjectiveSpoof }
+    if ($null -eq $oldFriendlyFireLocalTeam) { Remove-Item Env:DWRT_FRIENDLY_FIRE_LOCAL_TEAM -ErrorAction SilentlyContinue } else { $env:DWRT_FRIENDLY_FIRE_LOCAL_TEAM = $oldFriendlyFireLocalTeam }
+    if ($null -eq $oldTargetSourceTeamSpoof) { Remove-Item Env:DWRT_TARGET_PROBE_SOURCE_TEAM_SPOOF -ErrorAction SilentlyContinue } else { $env:DWRT_TARGET_PROBE_SOURCE_TEAM_SPOOF = $oldTargetSourceTeamSpoof }
+    if ($null -eq $oldTargetTeamSpoof) { Remove-Item Env:DWRT_TARGET_PROBE_TARGET_TEAM_SPOOF -ErrorAction SilentlyContinue } else { $env:DWRT_TARGET_PROBE_TARGET_TEAM_SPOOF = $oldTargetTeamSpoof }
+    if ($null -eq $oldTargetTeamSpoofTeam) { Remove-Item Env:DWRT_TARGET_PROBE_TARGET_TEAM_SPOOF_TEAM -ErrorAction SilentlyContinue } else { $env:DWRT_TARGET_PROBE_TARGET_TEAM_SPOOF_TEAM = $oldTargetTeamSpoofTeam }
+    if ($null -eq $oldTargetBitsetAllow) { Remove-Item Env:DWRT_TARGET_PROBE_ALLOW_TARGET_BITSET -ErrorAction SilentlyContinue } else { $env:DWRT_TARGET_PROBE_ALLOW_TARGET_BITSET = $oldTargetBitsetAllow }
+    if ($null -eq $oldTargetForceFilterSameTeamAllow) { Remove-Item Env:DWRT_TARGET_PROBE_FORCE_FILTER_SAME_TEAM_ALLOW -ErrorAction SilentlyContinue } else { $env:DWRT_TARGET_PROBE_FORCE_FILTER_SAME_TEAM_ALLOW = $oldTargetForceFilterSameTeamAllow }
+    if ($null -eq $oldTargetForceCallerSameTeamAllow) { Remove-Item Env:DWRT_TARGET_PROBE_FORCE_CALLER_SAME_TEAM_ALLOW -ErrorAction SilentlyContinue } else { $env:DWRT_TARGET_PROBE_FORCE_CALLER_SAME_TEAM_ALLOW = $oldTargetForceCallerSameTeamAllow }
+    if ($null -eq $oldTargetForceFilterObjectiveAllow) { Remove-Item Env:DWRT_TARGET_PROBE_FORCE_FILTER_OBJECTIVE_ALLOW -ErrorAction SilentlyContinue } else { $env:DWRT_TARGET_PROBE_FORCE_FILTER_OBJECTIVE_ALLOW = $oldTargetForceFilterObjectiveAllow }
+    if ($null -eq $oldTargetForceCallerObjectiveAllow) { Remove-Item Env:DWRT_TARGET_PROBE_FORCE_CALLER_OBJECTIVE_ALLOW -ErrorAction SilentlyContinue } else { $env:DWRT_TARGET_PROBE_FORCE_CALLER_OBJECTIVE_ALLOW = $oldTargetForceCallerObjectiveAllow }
+    if ($null -eq $oldTargetForceSecondaryAllow) { Remove-Item Env:DWRT_TARGET_PROBE_FORCE_SECONDARY_ALLOW -ErrorAction SilentlyContinue } else { $env:DWRT_TARGET_PROBE_FORCE_SECONDARY_ALLOW = $oldTargetForceSecondaryAllow }
+    if ($null -eq $oldTargetNeutralSimulation) { Remove-Item Env:DWRT_TARGET_PROBE_NEUTRAL_SIMULATION -ErrorAction SilentlyContinue } else { $env:DWRT_TARGET_PROBE_NEUTRAL_SIMULATION = $oldTargetNeutralSimulation }
 }
 
 if (!(Test-Path $hostSummaryPath)) { throw "Missing host summary: $hostSummaryPath" }
@@ -179,8 +332,8 @@ if ([int]$hostSummary.signatureRequiredFailures -ne 0) { throw "Host signatureRe
 if (-not $hostSummary.usedLiveServerModule) { throw "Host did not resolve live server.dll module" }
 if ($hostSummary.usedMappedFileFallback) { throw "Host unexpectedly used mapped-file fallback in live server smoke" }
 if ($InstallProbeHooks) {
-    if ([int]$hostSummary.hookInstallAttempts -ne 3) { throw "Expected 3 hook install attempts" }
-    if ([int]$hostSummary.hooksInstalled -ne 3) { throw "Expected 3 installed hooks" }
+    if ([int]$hostSummary.hookInstallAttempts -ne 7) { throw "Expected 7 hook install attempts" }
+    if ([int]$hostSummary.hooksInstalled -ne 7) { throw "Expected 7 installed hooks" }
     if ([int]$hostSummary.hookInstallFailures -ne 0) { throw "Hook install failures=$($hostSummary.hookInstallFailures)" }
 }
 else {

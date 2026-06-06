@@ -27,9 +27,11 @@ param(
 
     [int]$WaitServerModuleSeconds = 45,
 
-    [int]$HoldSeconds = 3,
+    [int]$HoldSeconds = 5,
 
-    [int]$TimeoutSeconds = 90,
+    [uint32]$ProbeMountMask = 7,
+
+    [int]$TimeoutSeconds = 120,
 
     [switch]$KillExisting
 )
@@ -43,12 +45,17 @@ if ($RequireProfiler -and ($NoProfile -or $Profiler -eq "None")) {
 $repo = Resolve-Path (Join-Path $PSScriptRoot "..")
 if ([string]::IsNullOrWhiteSpace($OutputDir)) {
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    $OutputDir = Join-Path $repo "research\benchmarks\runs\$stamp-dwrt-native-stack-test"
+    $OutputDir = Join-Path $repo "research\benchmarks\runs\$stamp-dwrt-ffa-readiness-test"
 }
+elseif (-not [System.IO.Path]::IsPathRooted($OutputDir)) {
+    $OutputDir = Join-Path $repo $OutputDir
+}
+$OutputDir = [System.IO.Path]::GetFullPath($OutputDir)
 New-Item -ItemType Directory -Force $OutputDir | Out-Null
 
-$summaryPath = Join-Path $OutputDir "dwrt-native-stack-test.json"
-$reportPath = Join-Path $OutputDir "dwrt-native-stack-test.md"
+$summaryPath = Join-Path $OutputDir "dwrt-ffa-readiness-test.json"
+$reportPath = Join-Path $OutputDir "dwrt-ffa-readiness-test.md"
+$manualMatrixPath = Join-Path $OutputDir "dwrt-ffa-manual-matrix.md"
 $logsDir = Join-Path $OutputDir "logs"
 New-Item -ItemType Directory -Force $logsDir | Out-Null
 
@@ -101,7 +108,7 @@ function Invoke-LoggedStep {
     $exitCode = 0
     $errorMessage = ""
 
-    Write-Host "[dwrt-stack-test] START $Name"
+    Write-Host "[dwrt-ffa-test] START $Name"
     $transcriptStarted = $false
     try {
         Start-Transcript -Path $logPath -Force | Out-Null
@@ -126,7 +133,7 @@ function Invoke-LoggedStep {
 
     $ended = Get-Date
     Add-StepResult -Name $Name -Status $status -StartedAt $started -EndedAt $ended -ExitCode $exitCode -LogPath $logPath -ErrorMessage $errorMessage -Artifacts $Artifacts
-    Write-Host "[dwrt-stack-test] $($status.ToUpperInvariant()) $Name"
+    Write-Host "[dwrt-ffa-test] $($status.ToUpperInvariant()) $Name"
 
     if ($status -ne "passed") {
         throw "$Name failed: $errorMessage"
@@ -139,12 +146,6 @@ function New-ChildRunDir([string]$Name) {
     return $path
 }
 
-function Get-ProfileJsons([string]$RunDir) {
-    $profileDir = Join-Path $RunDir "profile"
-    if (!(Test-Path $profileDir)) { return @() }
-    return @(Get-ChildItem -Path $profileDir -Filter "*.json" -File -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
-}
-
 function Assert-JsonGate([string]$Path, [scriptblock]$Predicate, [string]$Message) {
     if (!(Test-Path $Path)) { throw "Missing JSON artifact: $Path" }
     $json = Get-Content -Raw $Path | ConvertFrom-Json
@@ -152,32 +153,77 @@ function Assert-JsonGate([string]$Path, [scriptblock]$Predicate, [string]$Messag
     return $json
 }
 
-$runtimeSmokeArtifacts = @{}
-Invoke-LoggedStep -Name "cargo-test-workspace" -Body {
+function Write-ManualMatrix([string]$Path) {
+    $md = New-Object System.Text.StringBuilder
+    [void]$md.AppendLine("# DWRT FFA manual probe matrix")
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine("Generated: " + (Get-Date).ToString("o"))
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine('Run each scenario with a connected client. Stop detached sessions by writing the run directory''s `stop-session.flag`.')
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine("## Baseline target probe")
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine('```powershell')
+    [void]$md.AppendLine("scripts/start-dwrt-manual-probe-session.ps1 -NoProfile -Detached -PollSeconds 2 -ProbeMountMask 7")
+    [void]$md.AppendLine('```')
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine("Actions: enemy player/objective, same-team player/objective, neutral, MidBoss.")
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine("## mp_friendlyfire comparison")
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine('Repeat baseline with server args adding `+mp_friendlyfire 0`, then `+mp_friendlyfire 1`.')
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine("## Source team spoof proof")
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine('```powershell')
+    [void]$md.AppendLine("scripts/start-dwrt-manual-probe-session.ps1 -NoProfile -Detached -TargetSourceTeamSpoofExperiment -PollSeconds 2 -ProbeMountMask 7")
+    [void]$md.AppendLine('```')
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine('Pass evidence: `sourceSpoofApplied == sourceSpoofRestored`; compare allowed/denied counters with baseline.')
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine("## Objective spoof regression guard")
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine('```powershell')
+    [void]$md.AppendLine("scripts/start-dwrt-manual-probe-session.ps1 -NoProfile -Detached -FriendlyFireExperiment -FriendlyFireLocalTeam 2 -PollSeconds 2 -ProbeMountMask 7")
+    [void]$md.AppendLine("scripts/start-dwrt-manual-probe-session.ps1 -NoProfile -Detached -FriendlyFireExperiment -FriendlyFireLocalTeam 3 -PollSeconds 2 -ProbeMountMask 7")
+    [void]$md.AppendLine('```')
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine('Pass evidence: enemy objective damage still reaches `TakeDamageOld`; own-objective behavior is explained by target-filter counters.')
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine("## Bot harness")
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine("Use shipped bot configs before custom spawning:")
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine('```txt')
+    [void]$md.AppendLine("+exec citadel_botmatch_practice_1v1.cfg")
+    [void]$md.AppendLine("+exec citadel_botmatch_practice_2v2_guided.cfg")
+    [void]$md.AppendLine('```')
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine("Pass evidence: bot attacks create player/objective target-filter and damage counters without server/client crash.")
+    $md.ToString() | Set-Content -Encoding UTF8 $Path
+}
+
+Invoke-LoggedStep -Name "ffa-policy-tests" -Body {
     Push-Location $repo
-    try { cargo test --workspace }
+    try { cargo test -p dwrt-engine ffa }
     finally { Pop-Location }
 }
 
 if (-not $SkipClippy) {
-    Invoke-LoggedStep -Name "cargo-clippy-workspace" -Body {
+    Invoke-LoggedStep -Name "ffa-policy-clippy" -Body {
         Push-Location $repo
-        try { cargo clippy --workspace --all-targets -- -D warnings }
+        try { cargo clippy -p dwrt-engine --all-targets -- -D warnings }
         finally { Pop-Location }
     }
 }
 
-Invoke-LoggedStep -Name "runtime-c-abi-smoke" -Body {
-    & (Join-Path $repo "scripts\smoke-dwrt-runtime.ps1") -Configuration $Configuration
-}
-
-$hostRunDir = New-ChildRunDir "host-resolver"
+$hostRunDir = New-ChildRunDir "host-target-filter-signatures"
 $hostArtifacts = @{
     outputDir = $hostRunDir
     bootstrapSummary = (Join-Path $hostRunDir "dwrt-host-bootstrap.json")
     resolverSummary = (Join-Path $hostRunDir "dwrt-host-smoke.json")
 }
-Invoke-LoggedStep -Name "host-resolver-smoke" -Artifacts $hostArtifacts -Body {
+Invoke-LoggedStep -Name "target-filter-signature-smoke" -Artifacts $hostArtifacts -Body {
     $hostParams = @{
         Configuration = $Configuration
         OutputDir = $hostRunDir
@@ -189,18 +235,24 @@ Invoke-LoggedStep -Name "host-resolver-smoke" -Artifacts $hostArtifacts -Body {
     if ($RequireProfiler) { $hostParams.RequireProfiler = $true }
     & (Join-Path $repo "scripts\smoke-dwrt-host.ps1") @hostParams
 }
-$hostResolver = Assert-JsonGate $hostArtifacts.resolverSummary { param($j) $j.ok -and $j.requiredFailures -eq 0 -and $j.mappedRequiredFailures -eq 0 -and $j.runtime.probeOk } "Host resolver smoke gates failed"
-$hostBootstrap = Assert-JsonGate $hostArtifacts.bootstrapSummary { param($j) $j.initialized -and $j.runtimeLoaded -and $j.runtimeProbeOk -and $j.signaturesChecked -and $j.signatureRequiredFailures -eq 0 } "Host bootstrap smoke gates failed"
-$hostArtifacts.profileJsons = @(Get-ProfileJsons $hostRunDir)
+$hostSummary = Assert-JsonGate $hostArtifacts.resolverSummary {
+    param($j)
+    $filter = @($j.signatures | Where-Object { $_.name -eq "CitadelTargetFilter::FriendlyFire" })[0]
+    $caller = @($j.signatures | Where-Object { $_.name -eq "CitadelTargetFilter::FriendlyFireCaller" })[0]
+    $j.ok -and $j.requiredFailures -eq 0 -and $j.mappedRequiredFailures -eq 0 -and
+        $filter.unique -and $filter.expectedRvaOk -and $filter.rva -eq "0x18d9180" -and
+        $caller.unique -and $caller.expectedRvaOk -and $caller.rva -eq "0x7839d0"
+} "Target-filter signatures failed FFA readiness gates"
+$null = $hostSummary
 
 if ($IncludeLiveServer) {
-    $liveRunDir = New-ChildRunDir "live-server-bootstrap"
+    $liveRunDir = New-ChildRunDir "live-target-filter-bootstrap"
     $liveArtifacts = @{
         outputDir = $liveRunDir
         hostSummary = (Join-Path $liveRunDir "dwrt-live-host.json")
         injectorSummary = (Join-Path $liveRunDir "dwrt-live-injector.json")
     }
-    Invoke-LoggedStep -Name "live-server-bootstrap-smoke" -Artifacts $liveArtifacts -Body {
+    Invoke-LoggedStep -Name "live-target-filter-bootstrap" -Artifacts $liveArtifacts -Body {
         $liveParams = @{
             Configuration = $Configuration
             OutputDir = $liveRunDir
@@ -209,6 +261,7 @@ if ($IncludeLiveServer) {
             ServerArgs = $ServerArgs
             WaitServerModuleSeconds = $WaitServerModuleSeconds
             HoldSeconds = $HoldSeconds
+            ProbeMountMask = $ProbeMountMask
             TimeoutSeconds = $TimeoutSeconds
             Profiler = $Profiler
             XperfPreset = $XperfPreset
@@ -218,22 +271,19 @@ if ($IncludeLiveServer) {
         if ($KillExisting) { $liveParams.KillExisting = $true }
         & (Join-Path $repo "scripts\smoke-dwrt-live-server.ps1") @liveParams
     }
-    $liveHost = Assert-JsonGate $liveArtifacts.hostSummary { param($j) $j.initialized -and $j.runtimeLoaded -and $j.runtimeProbeOk -and $j.signaturesChecked -and $j.usedLiveServerModule -and (-not $j.usedMappedFileFallback) -and $j.signatureRequiredFailures -eq 0 -and $j.hookInstallAttempts -eq 0 -and $j.testpoints.initializeCalls -eq 1 -and $j.testpoints.callbackRecursiveEntries -eq 0 } "Live server bootstrap gates failed"
-    $liveInjector = Assert-JsonGate $liveArtifacts.injectorSummary { param($j) $j.ok -and $j.snapshot.usedLiveServerModule -eq 1 -and $j.snapshot.usedMappedFileFallback -eq 0 } "Live server injector gates failed"
-    $liveArtifacts.profileJsons = @(Get-ProfileJsons $liveRunDir)
+    Assert-JsonGate $liveArtifacts.injectorSummary {
+        param($j) $j.ok -and $j.snapshot.usedLiveServerModule -eq 1 -and $j.snapshot.usedMappedFileFallback -eq 0
+    } "Live target-filter bootstrap failed FFA readiness gates" | Out-Null
 }
 
 if ($IncludeHookInstall) {
-    if (-not $IncludeLiveServer) {
-        Write-Warning "-IncludeHookInstall implies a live server run. Running hook install smoke."
-    }
-    $hookRunDir = New-ChildRunDir "live-hook-install"
+    $hookRunDir = New-ChildRunDir "live-target-filter-hook-install"
     $hookArtifacts = @{
         outputDir = $hookRunDir
         hostSummary = (Join-Path $hookRunDir "dwrt-live-host.json")
         injectorSummary = (Join-Path $hookRunDir "dwrt-live-injector.json")
     }
-    Invoke-LoggedStep -Name "live-hook-install-smoke" -Artifacts $hookArtifacts -Body {
+    Invoke-LoggedStep -Name "live-target-filter-hook-install" -Artifacts $hookArtifacts -Body {
         $hookParams = @{
             Configuration = $Configuration
             OutputDir = $hookRunDir
@@ -242,6 +292,7 @@ if ($IncludeHookInstall) {
             ServerArgs = $ServerArgs
             WaitServerModuleSeconds = $WaitServerModuleSeconds
             HoldSeconds = $HoldSeconds
+            ProbeMountMask = $ProbeMountMask
             TimeoutSeconds = $TimeoutSeconds
             Profiler = $Profiler
             XperfPreset = $XperfPreset
@@ -252,10 +303,18 @@ if ($IncludeHookInstall) {
         if ($KillExisting) { $hookParams.KillExisting = $true }
         & (Join-Path $repo "scripts\smoke-dwrt-live-server.ps1") @hookParams
     }
-    $hookHost = Assert-JsonGate $hookArtifacts.hostSummary { param($j) $j.initialized -and $j.runtimeLoaded -and $j.runtimeProbeOk -and $j.signaturesChecked -and $j.usedLiveServerModule -and (-not $j.usedMappedFileFallback) -and $j.signatureRequiredFailures -eq 0 -and $j.hookInstallAttempts -eq 7 -and $j.hooksInstalled -eq 7 -and $j.hookInstallFailures -eq 0 -and $j.testpoints.initializeCalls -eq 1 -and $j.testpoints.callbackRecursiveEntries -eq 0 } "Live hook install gates failed"
-    $hookInjector = Assert-JsonGate $hookArtifacts.injectorSummary { param($j) $j.ok -and $j.installProbeHooks -and $j.snapshot.hooksInstalled -eq 7 -and $j.snapshot.hookInstallFailures -eq 0 } "Live hook injector gates failed"
-    $hookArtifacts.profileJsons = @(Get-ProfileJsons $hookRunDir)
+    Assert-JsonGate $hookArtifacts.injectorSummary {
+        param($j)
+        $j.ok -and $j.installProbeHooks -and
+            $j.snapshot.hookInstallAttempts -eq 7 -and
+            $j.snapshot.hooksInstalled -eq 7 -and
+            $j.snapshot.hookInstallFailures -eq 0 -and
+            $j.targetProbeSnapshotStatus -eq 0 -and
+            $j.targetProbe.enabled -eq 1
+    } "Live target-filter hook install failed FFA readiness gates" | Out-Null
 }
+
+Write-ManualMatrix $manualMatrixPath
 
 $ended = Get-Date
 $failedSteps = @($script:Steps | Where-Object { $_.status -ne "passed" })
@@ -273,23 +332,21 @@ $summary = [ordered]@{
     noProfile = [bool]$NoProfile
     profiler = $(if ($NoProfile) { "None" } else { $Profiler })
     xperfPreset = $XperfPreset
+    probeMountMask = $ProbeMountMask
     steps = $script:Steps
+    manualMatrix = $manualMatrixPath
 }
 $summary | ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 $summaryPath
 
-$md = New-Object System.Text.StringBuilder
 $resultText = if ($ok) { "PASS" } else { "FAIL" }
-$profileText = if ($NoProfile) { "None" } else { $Profiler }
-$clippyText = if ($SkipClippy) { "tests only; clippy skipped" } else { "covered" }
-$liveText = if ($IncludeLiveServer) { "covered" } else { "skipped" }
-$hookText = if ($IncludeHookInstall) { "covered" } else { "skipped" }
-[void]$md.AppendLine("# DWRT native stack test")
+$md = New-Object System.Text.StringBuilder
+[void]$md.AppendLine("# DWRT FFA readiness test")
 [void]$md.AppendLine("")
 [void]$md.AppendLine("- Result: **" + $resultText + "**")
 [void]$md.AppendLine("- Started: " + $script:SuiteStart.ToString("o"))
 [void]$md.AppendLine("- Ended: " + $ended.ToString("o"))
 [void]$md.AppendLine("- Output: " + $OutputDir)
-[void]$md.AppendLine("- Profiling: " + $profileText + " / " + $XperfPreset)
+[void]$md.AppendLine("- Manual matrix: " + $manualMatrixPath)
 [void]$md.AppendLine("")
 [void]$md.AppendLine("## Steps")
 [void]$md.AppendLine("")
@@ -299,23 +356,16 @@ foreach ($step in $script:Steps) {
     [void]$md.AppendLine("| " + $step.name + " | " + $step.status + " | " + $step.elapsedSeconds + " | " + $step.logPath + " |")
 }
 [void]$md.AppendLine("")
-[void]$md.AppendLine("## Key gates")
+[void]$md.AppendLine("## Gates")
 [void]$md.AppendLine("")
-[void]$md.AppendLine("- Rust workspace tests and clippy: " + $clippyText)
-[void]$md.AppendLine("- Runtime C ABI smoke: covered")
-[void]$md.AppendLine("- Host resolver/bootstrap smoke: covered")
-[void]$md.AppendLine("- Live server bootstrap: " + $liveText)
-[void]$md.AppendLine("- Live hook install: " + $hookText)
-[void]$md.AppendLine("")
-[void]$md.AppendLine("## Debug artifacts")
-[void]$md.AppendLine("")
-[void]$md.AppendLine("- Suite JSON: " + $summaryPath)
-[void]$md.AppendLine("- Per-step logs: " + $logsDir)
-[void]$md.AppendLine("- Child run directories are under: " + $OutputDir)
-[void]$md.AppendLine("- ETW .etl files are intentionally under ignored run directories and should not be committed.")
+[void]$md.AppendLine("- FFA policy tests: covered")
+[void]$md.AppendLine("- Target-filter signature smoke: covered")
+[void]$md.AppendLine("- Live server bootstrap: " + ($(if ($IncludeLiveServer) { "covered" } else { "skipped" })))
+[void]$md.AppendLine("- Live hook install: " + ($(if ($IncludeHookInstall) { "covered" } else { "skipped" })))
 $md.ToString() | Set-Content -Encoding UTF8 $reportPath
 
-Write-Host "[dwrt-stack-test] summary -> $summaryPath"
-Write-Host "[dwrt-stack-test] report -> $reportPath"
+Write-Host "[dwrt-ffa-test] summary -> $summaryPath"
+Write-Host "[dwrt-ffa-test] report -> $reportPath"
+Write-Host "[dwrt-ffa-test] manual matrix -> $manualMatrixPath"
 if (-not $ok) { exit 1 }
-Write-Host "[dwrt-stack-test] OK"
+Write-Host "[dwrt-ffa-test] OK"
